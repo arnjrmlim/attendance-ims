@@ -22,12 +22,19 @@ use App\Controllers\ManualAttendanceController;
 use App\Controllers\NotificationController;
 use App\Controllers\ReportController;
 use App\Controllers\SearchController;
+use App\Controllers\ProfileController;
 use App\Controllers\SystemController;
 
 $router->get('/', [DashboardController::class, 'index']);
 $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->post('/logout', [AuthController::class, 'logout']);
+
+/* ── Profile Settings ────────────────────────────────────────────── */
+$router->get('/profile', [ProfileController::class, 'index']);
+$router->post('/profile/password', [ProfileController::class, 'changePassword']);
+$router->post('/profile/picture', [ProfileController::class, 'uploadPicture']);
+$router->post('/profile/picture/remove', [ProfileController::class, 'removePicture']);
 
 $router->get('/dashboard', [DashboardController::class, 'index']);
 

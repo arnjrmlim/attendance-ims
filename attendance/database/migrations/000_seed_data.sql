@@ -192,10 +192,13 @@ INSERT INTO `employees` (`id`, `employee_number`, `first_name`, `middle_name`, `
 -- Passwords (all): Admin@123456
 -- Hash generated via: password_hash('Admin@123456', PASSWORD_BCRYPT, ['cost'=>12])
 -- ============================================================
-INSERT INTO `users` (`id`, `username`, `password_hash`, `role_id`, `employee_id`, `full_name`, `email`, `status`) VALUES
-('u1000000-0000-0000-0000-000000000001', 'admin',    '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 1, 'e1000000-0000-0000-0000-000000000001', 'System Administrator', 'admin@company.com',     'active'),
-('u2000000-0000-0000-0000-000000000001', 'hr_maria', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 2, 'e2000000-0000-0000-0000-000000000001', 'Maria Santos Reyes',   'maria.reyes@company.com','active'),
-('u3000000-0000-0000-0000-000000000001', 'emp_jose', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 4, 'e3000000-0000-0000-0000-000000000001', 'Jose Cruz Garcia',     'jose.garcia@company.com','active');
+-- Default password for all seed users: Admin@123456
+-- Hash: password_hash('Admin@123456', PASSWORD_BCRYPT, ['cost'=>12])
+-- must_change_password = 0 for seed users so they can log in immediately
+INSERT INTO `users` (`id`, `username`, `password_hash`, `role_id`, `employee_id`, `full_name`, `email`, `status`, `must_change_password`, `password_changed_at`) VALUES
+('u1000000-0000-0000-0000-000000000001', 'admin',    '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 1, 'e1000000-0000-0000-0000-000000000001', 'System Administrator', 'admin@company.com',     'active', 0, NOW()),
+('u2000000-0000-0000-0000-000000000001', 'hr_maria', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 2, 'e2000000-0000-0000-0000-000000000001', 'Maria Santos Reyes',   'maria.reyes@company.com','active', 0, NOW()),
+('u3000000-0000-0000-0000-000000000001', 'emp_jose', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 4, 'e3000000-0000-0000-0000-000000000001', 'Jose Cruz Garcia',     'jose.garcia@company.com','active', 0, NOW());
 
 -- ============================================================
 -- Sample Attendance Records (last 5 working days)

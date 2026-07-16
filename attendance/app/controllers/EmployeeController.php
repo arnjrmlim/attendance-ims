@@ -112,19 +112,20 @@ final class EmployeeController extends BaseController
     public function show(): void
     {
         require_role(['administrator', 'hr']);
-        
+
         $id = $_GET['id'] ?? '';
         $employee = $this->service->find($id);
-        
+
         if (!$employee) {
             flash('error', 'Employee not found.');
             redirect('employees');
         }
 
         $this->render('employees/view', [
-            'title' => 'Employee Profile - ' . e($employee['full_name']),
-            'employee' => $employee,
-            'timeline' => $this->service->getTimeline($id),
+            'title'        => 'Employee Profile - ' . e($employee['full_name']),
+            'employee'     => $employee,
+            'timeline'     => $this->service->getTimeline($id),
+            'attendance'   => $this->service->getAttendanceSummary($id),
         ]);
     }
 

@@ -64,16 +64,52 @@ $flashError = flash('error');
             <form class="d-flex me-3" role="search" action="<?= url('search') ?>">
                 <input class="form-control form-control-sm" name="q" type="search" placeholder="Search" value="<?= e($_GET['q'] ?? '') ?>">
             </form>
-            <a class="btn btn-light btn-sm position-relative me-2" href="<?= url('notifications') ?>" title="Notifications">
-                <i class="bi bi-bell"></i>
-                <?php if (($unreadNotifications ?? 0) > 0): ?>
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"><?= (int) $unreadNotifications ?></span>
-                <?php endif; ?>
-            </a>
-            <form method="post" action="<?= url('logout') ?>">
-                <?= csrf_field() ?>
-                <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right"></i></button>
-            </form>
+            <?php /* User dropdown — Notifications + Profile Settings + Logout */ ?>
+            <div class="dropdown">
+                <button class="btn btn-light btn-sm dropdown-toggle d-flex align-items-center gap-2"
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <?php $avatarPath = $_SESSION['user']['profile_picture'] ?? null; ?>
+                    <?php if ($avatarPath): ?>
+                        <img src="<?= url('uploads/' . e($avatarPath)) ?>"
+                             alt="avatar"
+                             class="rounded-circle"
+                             style="width:24px;height:24px;object-fit:cover;">
+                    <?php else: ?>
+                        <i class="bi bi-person-circle fs-5"></i>
+                    <?php endif; ?>
+                    <span class="d-none d-md-inline"><?= e($user['full_name'] ?? $user['username']) ?></span>
+                    <?php if (($unreadNotifications ?? 0) > 0): ?>
+                        <span class="badge rounded-pill bg-danger" style="font-size:.65rem;"><?= (int) $unreadNotifications ?></span>
+                    <?php endif; ?>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header"><?= e($user['full_name'] ?? $user['username']) ?></h6></li>
+                    <li><span class="dropdown-item-text text-muted small"><?= e($user['role_name'] ?? '') ?></span></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" href="<?= url('notifications') ?>">
+                            <i class="bi bi-bell me-2"></i> Notifications
+                            <?php if (($unreadNotifications ?? 0) > 0): ?>
+                                <span class="badge rounded-pill bg-danger ms-1"><?= (int) $unreadNotifications ?></span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="<?= url('profile') ?>">
+                            <i class="bi bi-person-gear me-2"></i> Profile Settings
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form method="post" action="<?= url('logout') ?>">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="dropdown-item text-danger">
+                                <i class="bi bi-box-arrow-right me-2"></i> Logout
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 </nav>

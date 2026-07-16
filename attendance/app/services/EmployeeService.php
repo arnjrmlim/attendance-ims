@@ -643,6 +643,33 @@ final class EmployeeService
     }
 
     /**
+     * Get attendance summary counts for an employee (used on the profile page)
+     */
+    public function getAttendanceSummary(string $id): array
+    {
+        $db = Database::connection();
+
+        $stmt = $db->prepare(
+            "SELECT
+                SUM(CASE WHEN day_status = 'present' AND is_late = 0 THEN 1 ELSE 0 END) AS present,
+                SUM(CASE WHEN is_late = 1 THEN 1 ELSE 0 END)                            AS late,
+                SUM(CASE WHEN day_status = 'absent' THEN 1 ELSE 0 END)                  AS absent,
+                SUM(COALESCE(overtime_minutes,0))                                        AS overtime_minutes
+             FROM attendance_summary
+             WHERE employee_id = ?"
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        return [
+            'present'          => (int) ($row['present']         ?? 0),
+            'late'             => (int) ($row['late']            ?? 0),
+            'absent'           => (int) ($row['absent']          ?? 0),
+            'overtime_hours'   => round(((int) ($row['overtime_minutes'] ?? 0)) / 60, 1),
+        ];
+    }
+
+    /**
      * Get employee timeline
      */
     public function getTimeline(string $id): array
