@@ -1,0 +1,20 @@
+<section class="min-vh-100 d-flex align-items-center justify-content-center p-3">
+    <div class="panel p-4" style="width:min(420px,100%)">
+        <div class="text-center mb-4">
+            <img src="<?= url('assets/img/logo.svg') ?>" width="64" height="64" alt="">
+            <h1 class="h4 mt-3">Attendance Management System</h1>
+        </div>
+        <form method="post" action="<?= url('login') ?>">
+            <?= csrf_field() ?>
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input class="form-control" name="username" required autofocus>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input class="form-control" type="password" name="password" required>
+            </div>
+            <button class="btn btn-primary w-100">Sign in</button>
+        </form>
+    </div>
+</section>

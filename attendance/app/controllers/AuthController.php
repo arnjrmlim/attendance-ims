@@ -1,0 +1,56 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Core\Database;
+use App\Services\AuditService;
+
+final class AuthController extends BaseController
+{
+    public function showLogin(): void
+    {
+        $this->render('auth/login', ['title' => 'Login']);
+    }
+
+    public function login(): void
+    {
+        verify_csrf();
+        $stmt = Database::connection()->prepare(
+            'SELECT users.*, roles.slug AS role_slug, roles.name AS role_name
+             FROM users INNER JOIN roles ON roles.id = users.role_id
+             WHERE users.username = ? AND users.status = "active"'
+        );
+        $stmt->execute([trim((string) ($_POST['username'] ?? ''))]);
+        $user = $stmt->fetch();
+        if (!$user || !password_verify((string) ($_POST['password'] ?? ''), $user['password_hash'])) {
+            (new AuditService())->log('LOGIN_FAILED', 'auth', null, null, ['username' => $_POST['username'] ?? null]);
+            flash('error', 'Invalid username or password.');
+            redirect('login');
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['user'] = [
+            'id' => $user['id'],
+            'username' => $user['username'],
+            'role_slug' => $user['role_slug'],
+            'role_name' => $user['role_name'],
+            'employee_id' => $user['employee_id'],
+            'full_name' => $user['full_name'] ?: $user['username'],
+        ];
+        Database::connection()->prepare('UPDATE users SET last_login = NOW(), last_login_ip = ? WHERE id = ?')
+            ->execute([$_SERVER['REMOTE_ADDR'] ?? null, $user['id']]);
+        (new AuditService())->log('LOGIN_SUCCESS', 'auth', $user['id']);
+        redirect('dashboard');
+    }
+
+    public function logout(): void
+    {
+        verify_csrf();
+        (new AuditService())->log('LOGOUT', 'auth', current_user()['id'] ?? null);
+        $_SESSION = [];
+        session_destroy();
+        redirect('login');
+    }
+}
