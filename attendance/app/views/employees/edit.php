@@ -126,6 +126,29 @@
                     <label class="form-label">Password</label>
                     <input class="form-control" type="password" name="password" placeholder="Leave blank to keep current">
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Role</label>
+                    <select class="form-select" name="role_id">
+                        <option value="">No System Access</option>
+                        <?php if (empty($roles)): ?>
+                            <option value="" disabled>No roles configured</option>
+                        <?php else: ?>
+                            <?php foreach ($roles as $role): ?>
+                                <?php 
+                                $canAssign = $current_user_role === 'administrator' || !in_array($role['name'], ['Administrator', 'HR'], true);
+                                $selected = isset($employee['user_role_id']) && $employee['user_role_id'] == $role['id'] ? 'selected' : '';
+                                ?>
+                                <option value="<?= e($role['id']) ?>" <?= $selected ?> <?= !$canAssign ? 'disabled' : '' ?>>
+                                    <?= e($role['name']) ?>
+                                    <?= !$canAssign ? ' (Only Admin)' : '' ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                    <?php if ($current_user_role !== 'administrator'): ?>
+                        <small class="text-muted">Only administrators can assign Administrator or HR roles</small>
+                    <?php endif; ?>
+                </div>
                 <div class="col-md-12">
                     <label class="form-label">Home Address</label>
                     <textarea class="form-control" name="home_address" rows="2"><?= e($employee['home_address'] ?? '') ?></textarea>

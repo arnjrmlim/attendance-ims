@@ -121,12 +121,18 @@ final class EmployeeService
                        s.name AS shift_name,
                        sup.employee_number AS supervisor_number,
                        CONCAT(sup.first_name, " ", sup.last_name) AS supervisor_name,
-                       CONCAT(e.first_name, " ", e.last_name) AS full_name
+                       CONCAT(e.first_name, " ", e.last_name) AS full_name,
+                       u.id AS user_id,
+                       u.role_id AS user_role_id,
+                       r.name AS user_role_name,
+                       u.username AS user_username
                 FROM employees e
                 LEFT JOIN departments d ON d.id = e.department_id
                 LEFT JOIN branches b ON b.id = e.branch_id
                 LEFT JOIN shifts s ON s.id = e.shift_id
                 LEFT JOIN employees sup ON sup.id = e.immediate_supervisor_id
+                LEFT JOIN users u ON u.employee_id = e.id
+                LEFT JOIN roles r ON r.id = u.role_id
                 WHERE e.id = ?';
         
         $stmt = Database::connection()->prepare($sql);
@@ -153,6 +159,14 @@ final class EmployeeService
         $this->validate($data);
         $this->checkDuplicates($data);
 
+        // Validate role selection
+        if (empty($data['role_id'])) {
+            throw new InvalidArgumentException('Please select a role.');
+        }
+
+        // Validate role exists and user has permission to assign it
+        $this->validateRoleAssignment($data['role_id']);
+
         $id = uuid_v4();
         $userId = current_user()['id'] ?? null;
 
@@ -165,11 +179,21 @@ final class EmployeeService
             $pinHash = password_hash($data['pin'], PASSWORD_DEFAULT);
         }
 
-        // Hash password if provided
-        $passwordHash = null;
-        if (!empty($data['password'])) {
-            $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
+        // Generate username if not provided
+        $username = trim($data['username'] ?? '');
+        if (empty($username)) {
+            $username = $this->generateUsername($data['employee_number']);
         }
+
+        // Generate temporary password if not provided
+        $password = trim($data['password'] ?? '');
+        $tempPassword = null;
+        if (empty($password)) {
+            $tempPassword = $this->generateTemporaryPassword();
+            $password = $tempPassword;
+        }
+
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
         // Handle photo upload
         $photoPath = null;
@@ -189,93 +213,112 @@ final class EmployeeService
             // Columns don't exist or error occurred
         }
 
-        // Build SQL dynamically based on available columns
-        $columns = [
-            'id', 'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix',
-            'gender', 'date_of_birth', 'civil_status', 'nationality',
-            'photo', 'department_id', 'branch_id', 'shift_id', 'position',
-            'employment_status', 'employment_type', 'contact_number', 'alternate_mobile',
-            'email', 'home_address', 'emergency_contact_name', 'emergency_contact_number',
-            'emergency_contact_relationship', 'date_hired', 'immediate_supervisor_id',
-            'pin', 'pin_hash', 'qr_code_value', 'rfid_value', 'status',
-            'created_by', 'created_at', 'updated_at'
-        ];
+        // Start transaction
+        $db = Database::connection();
+        $db->beginTransaction();
 
-        if ($hasUsernameColumn) {
-            array_splice($columns, array_search('email', $columns) + 1, 0, 'username');
-        }
-        if ($hasPasswordColumn) {
-            array_splice($columns, array_search($hasUsernameColumn ? 'username' : 'email', $columns) + 1, 0, 'password_hash');
-        }
+        try {
+            // Build SQL dynamically based on available columns
+            $columns = [
+                'id', 'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix',
+                'gender', 'date_of_birth', 'civil_status', 'nationality',
+                'photo', 'department_id', 'branch_id', 'shift_id', 'position',
+                'employment_status', 'employment_type', 'contact_number', 'alternate_mobile',
+                'email', 'home_address', 'emergency_contact_name', 'emergency_contact_number',
+                'emergency_contact_relationship', 'date_hired', 'immediate_supervisor_id',
+                'pin', 'pin_hash', 'qr_code_value', 'rfid_value', 'status',
+                'created_by', 'created_at', 'updated_at'
+            ];
 
-        $sql = 'INSERT INTO employees (' . implode(', ', $columns) . ') VALUES (';
-        $placeholders = [];
-        foreach ($columns as $col) {
-            if ($col === 'created_at' || $col === 'updated_at') {
-                $placeholders[] = 'NOW()';
-            } else {
-                $placeholders[] = ':' . $col;
+            if ($hasUsernameColumn) {
+                array_splice($columns, array_search('email', $columns) + 1, 0, 'username');
             }
+            if ($hasPasswordColumn) {
+                array_splice($columns, array_search($hasUsernameColumn ? 'username' : 'email', $columns) + 1, 0, 'password_hash');
+            }
+
+            $sql = 'INSERT INTO employees (' . implode(', ', $columns) . ') VALUES (';
+            $placeholders = [];
+            foreach ($columns as $col) {
+                if ($col === 'created_at' || $col === 'updated_at') {
+                    $placeholders[] = 'NOW()';
+                } else {
+                    $placeholders[] = ':' . $col;
+                }
+            }
+            $sql .= implode(', ', $placeholders) . ')';
+
+            $stmt = $db->prepare($sql);
+            $params = [
+                'id' => $id,
+                'employee_number' => trim($data['employee_number']),
+                'first_name' => trim($data['first_name']),
+                'middle_name' => trim($data['middle_name'] ?? ''),
+                'last_name' => trim($data['last_name']),
+                'suffix' => trim($data['suffix'] ?? ''),
+                'gender' => $data['gender'] ?? null,
+                'date_of_birth' => $data['date_of_birth'] ?? null,
+                'civil_status' => $data['civil_status'] ?? null,
+                'nationality' => trim($data['nationality'] ?? ''),
+                'photo' => $photoPath,
+                'department_id' => $data['department_id'] ?: null,
+                'branch_id' => $data['branch_id'] ?: null,
+                'shift_id' => $data['shift_id'] ?: null,
+                'position' => trim($data['position'] ?? ''),
+                'employment_status' => $data['employment_status'] ?? 'Active',
+                'employment_type' => $data['employment_type'] ?? 'Probationary',
+                'contact_number' => trim($data['contact_number'] ?? ''),
+                'alternate_mobile' => trim($data['alternate_mobile'] ?? ''),
+                'email' => trim($data['email'] ?? ''),
+                'home_address' => trim($data['home_address'] ?? ''),
+                'emergency_contact_name' => trim($data['emergency_contact_name'] ?? ''),
+                'emergency_contact_number' => trim($data['emergency_contact_number'] ?? ''),
+                'emergency_contact_relationship' => trim($data['emergency_contact_relationship'] ?? ''),
+                'date_hired' => $data['date_hired'] ?? null,
+                'immediate_supervisor_id' => $data['immediate_supervisor_id'] ?: null,
+                'pin' => $data['pin'] ?? null,
+                'pin_hash' => $pinHash,
+                'qr_code_value' => $qrValue,
+                'rfid_value' => !empty(trim($data['rfid_value'] ?? '')) ? trim($data['rfid_value']) : null,
+                'status' => $data['status'] ?? 'active',
+                'created_by' => $userId,
+            ];
+
+            if ($hasUsernameColumn) {
+                $params['username'] = $username;
+            }
+            if ($hasPasswordColumn) {
+                $params['password_hash'] = $passwordHash;
+            }
+
+            $stmt->execute($params);
+
+            // Create user record with role assignment
+            $this->createUserForEmployee($id, $data, $passwordHash, (int)$data['role_id'], $username);
+
+            // Add timeline entry
+            $this->addTimelineEntry($id, 'employee_created', null, json_encode($data), 'Employee created', $userId);
+
+            // Log audit
+            (new AuditService())->log('EMPLOYEE_CREATED', 'employees', $id, null, $data);
+            (new AuditService())->log('ROLE_ASSIGNED', 'users', $id, null, [
+                'role_id' => $data['role_id'],
+                'username' => $username
+            ]);
+
+            $db->commit();
+
+            // Store temporary password and generated username in session for display
+            if ($tempPassword) {
+                $_SESSION['temp_password_' . $id] = $tempPassword;
+                $_SESSION['generated_username_' . $id] = $username;
+            }
+
+            return $id;
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
         }
-        $sql .= implode(', ', $placeholders) . ')';
-
-        $stmt = Database::connection()->prepare($sql);
-        $params = [
-            'id' => $id,
-            'employee_number' => trim($data['employee_number']),
-            'first_name' => trim($data['first_name']),
-            'middle_name' => trim($data['middle_name'] ?? ''),
-            'last_name' => trim($data['last_name']),
-            'suffix' => trim($data['suffix'] ?? ''),
-            'gender' => $data['gender'] ?? null,
-            'date_of_birth' => $data['date_of_birth'] ?? null,
-            'civil_status' => $data['civil_status'] ?? null,
-            'nationality' => trim($data['nationality'] ?? ''),
-            'photo' => $photoPath,
-            'department_id' => $data['department_id'] ?: null,
-            'branch_id' => $data['branch_id'] ?: null,
-            'shift_id' => $data['shift_id'] ?: null,
-            'position' => trim($data['position'] ?? ''),
-            'employment_status' => $data['employment_status'] ?? 'Active',
-            'employment_type' => $data['employment_type'] ?? 'Probationary',
-            'contact_number' => trim($data['contact_number'] ?? ''),
-            'alternate_mobile' => trim($data['alternate_mobile'] ?? ''),
-            'email' => trim($data['email'] ?? ''),
-            'home_address' => trim($data['home_address'] ?? ''),
-            'emergency_contact_name' => trim($data['emergency_contact_name'] ?? ''),
-            'emergency_contact_number' => trim($data['emergency_contact_number'] ?? ''),
-            'emergency_contact_relationship' => trim($data['emergency_contact_relationship'] ?? ''),
-            'date_hired' => $data['date_hired'] ?? null,
-            'immediate_supervisor_id' => $data['immediate_supervisor_id'] ?: null,
-            'pin' => $data['pin'] ?? null,
-            'pin_hash' => $pinHash,
-            'qr_code_value' => $qrValue,
-            'rfid_value' => !empty(trim($data['rfid_value'] ?? '')) ? trim($data['rfid_value']) : null,
-            'status' => $data['status'] ?? 'active',
-            'created_by' => $userId,
-        ];
-
-        if ($hasUsernameColumn) {
-            $params['username'] = trim($data['username'] ?? '');
-        }
-        if ($hasPasswordColumn) {
-            $params['password_hash'] = $passwordHash;
-        }
-
-        $stmt->execute($params);
-
-        // Create user record if username and password provided
-        if (!empty($data['username']) && !empty($data['password'])) {
-            $this->createUserForEmployee($id, $data, $passwordHash);
-        }
-
-        // Add timeline entry
-        $this->addTimelineEntry($id, 'employee_created', null, json_encode($data), 'Employee created', $userId);
-
-        // Log audit
-        (new AuditService())->log('EMPLOYEE_CREATED', 'employees', $id, null, $data);
-
-        return $id;
     }
 
     /**
@@ -291,186 +334,216 @@ final class EmployeeService
         $this->validate($data, $id);
         $this->checkDuplicates($data, $id);
 
+        // Validate role assignment if provided
+        if (!empty($data['role_id'])) {
+            $this->validateRoleAssignment($data['role_id']);
+        }
+
         $userId = current_user()['id'] ?? null;
         $previousData = $employee;
+        $previousRoleId = $employee['user_role_id'] ?? null;
 
-        // Handle photo upload
-        $photoPath = $employee['photo'];
-        if (!empty($_FILES['photo']['name'])) {
-            $photoPath = $this->uploadPhoto('photo');
-            // Delete old photo
-            if ($employee['photo']) {
-                $this->deletePhoto($employee['photo']);
-            }
-            $this->addTimelineEntry($id, 'photo_updated', $employee['photo'], $photoPath, 'Profile photo updated', $userId);
-        }
+        // Start transaction
+        $db = Database::connection();
+        $db->beginTransaction();
 
-        // Handle PIN change
-        $pinHash = $employee['pin_hash'];
-        $pin = $employee['pin'];
-        if (!empty($data['pin'])) {
-            $pin = $data['pin'];
-            $pinHash = password_hash($data['pin'], PASSWORD_DEFAULT);
-        }
-
-        // Handle password change
-        $passwordHash = $employee['password_hash'] ?? null;
-        if (!empty($data['password'])) {
-            $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
-        }
-
-        // Check if username/password columns exist
-        $hasUsernameColumn = false;
-        $hasPasswordColumn = false;
         try {
-            $stmt = Database::connection()->query("SHOW COLUMNS FROM employees LIKE 'username'");
-            $hasUsernameColumn = $stmt->fetch() !== false;
-            $stmt = Database::connection()->query("SHOW COLUMNS FROM employees LIKE 'password_hash'");
-            $hasPasswordColumn = $stmt->fetch() !== false;
-        } catch (\Throwable $e) {
-            // Columns don't exist or error occurred
-        }
+            // Handle photo upload
+            $photoPath = $employee['photo'];
+            if (!empty($_FILES['photo']['name'])) {
+                $photoPath = $this->uploadPhoto('photo');
+                // Delete old photo
+                if ($employee['photo']) {
+                    $this->deletePhoto($employee['photo']);
+                }
+                $this->addTimelineEntry($id, 'photo_updated', $employee['photo'], $photoPath, 'Profile photo updated', $userId);
+            }
 
-        // Track changes for timeline
-        $changes = [];
-        if ($employee['department_id'] !== ($data['department_id'] ?? null)) {
-            $changes[] = 'department_changed';
-        }
-        if ($employee['branch_id'] !== ($data['branch_id'] ?? null)) {
-            $changes[] = 'branch_changed';
-        }
-        if ($employee['shift_id'] !== ($data['shift_id'] ?? null)) {
-            $changes[] = 'shift_changed';
-        }
-        if ($employee['position'] !== ($data['position'] ?? null)) {
-            $changes[] = 'position_changed';
-        }
-        if ($employee['employment_status'] !== ($data['employment_status'] ?? null)) {
-            $changes[] = 'status_changed';
-        }
+            // Handle PIN change
+            $pinHash = $employee['pin_hash'];
+            $pin = $employee['pin'];
+            if (!empty($data['pin'])) {
+                $pin = $data['pin'];
+                $pinHash = password_hash($data['pin'], PASSWORD_DEFAULT);
+            }
 
-        // Build SQL dynamically based on available columns
-        $setClauses = [
-            'employee_number = :employee_number',
-            'first_name = :first_name',
-            'middle_name = :middle_name',
-            'last_name = :last_name',
-            'suffix = :suffix',
-            'gender = :gender',
-            'date_of_birth = :date_of_birth',
-            'civil_status = :civil_status',
-            'nationality = :nationality',
-            'photo = :photo',
-            'department_id = :department_id',
-            'branch_id = :branch_id',
-            'shift_id = :shift_id',
-            'position = :position',
-            'employment_status = :employment_status',
-            'employment_type = :employment_type',
-            'contact_number = :contact_number',
-            'alternate_mobile = :alternate_mobile',
-            'email = :email',
-            'home_address = :home_address',
-            'emergency_contact_name = :emergency_contact_name',
-            'emergency_contact_number = :emergency_contact_number',
-            'emergency_contact_relationship = :emergency_contact_relationship',
-            'date_hired = :date_hired',
-            'immediate_supervisor_id = :immediate_supervisor_id',
-            'pin = :pin',
-            'pin_hash = :pin_hash',
-            'rfid_value = :rfid_value',
-            'status = :status',
-            'updated_by = :updated_by',
-            'updated_at = NOW()'
-        ];
+            // Handle password change
+            $passwordHash = $employee['password_hash'] ?? null;
+            if (!empty($data['password'])) {
+                $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
+            }
 
-        if ($hasUsernameColumn) {
-            array_splice($setClauses, array_search('email = :email', $setClauses) + 1, 0, 'username = :username');
-        }
-        if ($hasPasswordColumn) {
-            array_splice($setClauses, array_search($hasUsernameColumn ? 'username = :username' : 'email = :email', $setClauses) + 1, 0, 'password_hash = :password_hash');
-        }
+            // Check if username/password columns exist
+            $hasUsernameColumn = false;
+            $hasPasswordColumn = false;
+            try {
+                $stmt = $db->query("SHOW COLUMNS FROM employees LIKE 'username'");
+                $hasUsernameColumn = $stmt->fetch() !== false;
+                $stmt = $db->query("SHOW COLUMNS FROM employees LIKE 'password_hash'");
+                $hasPasswordColumn = $stmt->fetch() !== false;
+            } catch (\Throwable $e) {
+                // Columns don't exist or error occurred
+            }
 
-        $sql = 'UPDATE employees SET ' . implode(', ', $setClauses) . ' WHERE id = :id';
+            // Track changes for timeline
+            $changes = [];
+            if ($employee['department_id'] !== ($data['department_id'] ?? null)) {
+                $changes[] = 'department_changed';
+            }
+            if ($employee['branch_id'] !== ($data['branch_id'] ?? null)) {
+                $changes[] = 'branch_changed';
+            }
+            if ($employee['shift_id'] !== ($data['shift_id'] ?? null)) {
+                $changes[] = 'shift_changed';
+            }
+            if ($employee['position'] !== ($data['position'] ?? null)) {
+                $changes[] = 'position_changed';
+            }
+            if ($employee['employment_status'] !== ($data['employment_status'] ?? null)) {
+                $changes[] = 'status_changed';
+            }
+            if ($previousRoleId !== ($data['role_id'] ?? null)) {
+                $changes[] = 'role_changed';
+            }
 
-        $stmt = Database::connection()->prepare($sql);
-        $params = [
-            'id' => $id,
-            'employee_number' => trim($data['employee_number']),
-            'first_name' => trim($data['first_name']),
-            'middle_name' => trim($data['middle_name'] ?? ''),
-            'last_name' => trim($data['last_name']),
-            'suffix' => trim($data['suffix'] ?? ''),
-            'gender' => $data['gender'] ?? null,
-            'date_of_birth' => $data['date_of_birth'] ?? null,
-            'civil_status' => $data['civil_status'] ?? null,
-            'nationality' => trim($data['nationality'] ?? ''),
-            'photo' => $photoPath,
-            'department_id' => $data['department_id'] ?: null,
-            'branch_id' => $data['branch_id'] ?: null,
-            'shift_id' => $data['shift_id'] ?: null,
-            'position' => trim($data['position'] ?? ''),
-            'employment_status' => $data['employment_status'] ?? 'Active',
-            'employment_type' => $data['employment_type'] ?? 'Probationary',
-            'contact_number' => trim($data['contact_number'] ?? ''),
-            'alternate_mobile' => trim($data['alternate_mobile'] ?? ''),
-            'email' => trim($data['email'] ?? ''),
-            'home_address' => trim($data['home_address'] ?? ''),
-            'emergency_contact_name' => trim($data['emergency_contact_name'] ?? ''),
-            'emergency_contact_number' => trim($data['emergency_contact_number'] ?? ''),
-            'emergency_contact_relationship' => trim($data['emergency_contact_relationship'] ?? ''),
-            'date_hired' => $data['date_hired'] ?? null,
-            'immediate_supervisor_id' => $data['immediate_supervisor_id'] ?: null,
-            'pin' => $pin,
-            'pin_hash' => $pinHash,
-            'rfid_value' => !empty(trim($data['rfid_value'] ?? '')) ? trim($data['rfid_value']) : null,
-            'status' => $data['status'] ?? 'active',
-            'updated_by' => $userId,
-        ];
+            // Build SQL dynamically based on available columns
+            $setClauses = [
+                'employee_number = :employee_number',
+                'first_name = :first_name',
+                'middle_name = :middle_name',
+                'last_name = :last_name',
+                'suffix = :suffix',
+                'gender = :gender',
+                'date_of_birth = :date_of_birth',
+                'civil_status = :civil_status',
+                'nationality = :nationality',
+                'photo = :photo',
+                'department_id = :department_id',
+                'branch_id = :branch_id',
+                'shift_id = :shift_id',
+                'position = :position',
+                'employment_status = :employment_status',
+                'employment_type = :employment_type',
+                'contact_number = :contact_number',
+                'alternate_mobile = :alternate_mobile',
+                'email = :email',
+                'home_address = :home_address',
+                'emergency_contact_name = :emergency_contact_name',
+                'emergency_contact_number = :emergency_contact_number',
+                'emergency_contact_relationship = :emergency_contact_relationship',
+                'date_hired = :date_hired',
+                'immediate_supervisor_id = :immediate_supervisor_id',
+                'pin = :pin',
+                'pin_hash = :pin_hash',
+                'rfid_value = :rfid_value',
+                'status = :status',
+                'updated_by = :updated_by',
+                'updated_at = NOW()'
+            ];
 
-        if ($hasUsernameColumn) {
-            $params['username'] = trim($data['username'] ?? '');
-        }
-        if ($hasPasswordColumn) {
-            $params['password_hash'] = $passwordHash;
-        }
+            if ($hasUsernameColumn) {
+                array_splice($setClauses, array_search('email = :email', $setClauses) + 1, 0, 'username = :username');
+            }
+            if ($hasPasswordColumn) {
+                array_splice($setClauses, array_search($hasUsernameColumn ? 'username = :username' : 'email = :email', $setClauses) + 1, 0, 'password_hash = :password_hash');
+            }
 
-        $stmt->execute($params);
+            $sql = 'UPDATE employees SET ' . implode(', ', $setClauses) . ' WHERE id = :id';
 
-        // Update or create user record
-        if (!empty($data['username'])) {
-            // Check if user record exists for this employee
-            $existingUser = $this->findUserByEmployeeId($id);
-            
-            if ($existingUser) {
-                // Update existing user
-                $this->updateUserForEmployee($existingUser['id'], $data, $passwordHash);
+            $stmt = $db->prepare($sql);
+            $params = [
+                'id' => $id,
+                'employee_number' => trim($data['employee_number']),
+                'first_name' => trim($data['first_name']),
+                'middle_name' => trim($data['middle_name'] ?? ''),
+                'last_name' => trim($data['last_name']),
+                'suffix' => trim($data['suffix'] ?? ''),
+                'gender' => $data['gender'] ?? null,
+                'date_of_birth' => $data['date_of_birth'] ?? null,
+                'civil_status' => $data['civil_status'] ?? null,
+                'nationality' => trim($data['nationality'] ?? ''),
+                'photo' => $photoPath,
+                'department_id' => $data['department_id'] ?: null,
+                'branch_id' => $data['branch_id'] ?: null,
+                'shift_id' => $data['shift_id'] ?: null,
+                'position' => trim($data['position'] ?? ''),
+                'employment_status' => $data['employment_status'] ?? 'Active',
+                'employment_type' => $data['employment_type'] ?? 'Probationary',
+                'contact_number' => trim($data['contact_number'] ?? ''),
+                'alternate_mobile' => trim($data['alternate_mobile'] ?? ''),
+                'email' => trim($data['email'] ?? ''),
+                'home_address' => trim($data['home_address'] ?? ''),
+                'emergency_contact_name' => trim($data['emergency_contact_name'] ?? ''),
+                'emergency_contact_number' => trim($data['emergency_contact_number'] ?? ''),
+                'emergency_contact_relationship' => trim($data['emergency_contact_relationship'] ?? ''),
+                'date_hired' => $data['date_hired'] ?? null,
+                'immediate_supervisor_id' => $data['immediate_supervisor_id'] ?: null,
+                'pin' => $pin,
+                'pin_hash' => $pinHash,
+                'rfid_value' => !empty(trim($data['rfid_value'] ?? '')) ? trim($data['rfid_value']) : null,
+                'status' => $data['status'] ?? 'active',
+                'updated_by' => $userId,
+            ];
+
+            if ($hasUsernameColumn) {
+                $params['username'] = trim($data['username'] ?? '');
+            }
+            if ($hasPasswordColumn) {
+                $params['password_hash'] = $passwordHash;
+            }
+
+            $stmt->execute($params);
+
+            // Update or create user record with role handling
+            if (!empty($data['username'])) {
+                // Check if user record exists for this employee
+                $existingUser = $this->findUserByEmployeeId($id);
+                
+                if ($existingUser) {
+                    // Update existing user with role
+                    $this->updateUserForEmployee($existingUser['id'], $data, $passwordHash, (int)($data['role_id'] ?? $existingUser['role_id']));
+                    
+                    // Log role change if role was changed
+                    if (!empty($data['role_id']) && $previousRoleId != $data['role_id']) {
+                        (new AuditService())->log('ROLE_CHANGED', 'users', $existingUser['id'], $previousRoleId, [
+                            'new_role_id' => $data['role_id'],
+                            'employee_id' => $id
+                        ]);
+                    }
+                } else {
+                    // Create new user record - password is required for new users
+                    if (!empty($data['password'])) {
+                        $roleId = (int)($data['role_id'] ?? 3); // Default to Employee if not specified
+                        $username = trim($data['username']);
+                        $this->createUserForEmployee($id, $data, $passwordHash, $roleId, $username);
+                    }
+                }
             } else {
-                // Create new user record - password is required for new users
-                if (!empty($data['password'])) {
-                    $this->createUserForEmployee($id, $data, $passwordHash);
+                // Username cleared - check if user exists and delete
+                $existingUser = $this->findUserByEmployeeId($id);
+                if ($existingUser) {
+                    $this->deleteUserForEmployee($existingUser['id'], $id);
                 }
             }
-        } else {
-            // Username cleared - check if user exists and delete
-            $existingUser = $this->findUserByEmployeeId($id);
-            if ($existingUser) {
-                $this->deleteUserForEmployee($existingUser['id'], $id);
+
+            // Add timeline entries for changes
+            foreach ($changes as $change) {
+                $this->addTimelineEntry($id, $change, 
+                    json_encode($previousData), 
+                    json_encode($data), 
+                    ucfirst(str_replace('_', ' ', $change)), 
+                    $userId
+                );
             }
-        }
 
-        // Add timeline entries for changes
-        foreach ($changes as $change) {
-            $this->addTimelineEntry($id, $change, 
-                json_encode($previousData), 
-                json_encode($data), 
-                ucfirst(str_replace('_', ' ', $change)), 
-                $userId
-            );
-        }
+            $this->addTimelineEntry($id, 'employee_updated', json_encode($previousData), json_encode($data), 'Employee updated', $userId);
+            (new AuditService())->log('EMPLOYEE_UPDATED', 'employees', $id, json_encode($previousData), $data);
 
-        $this->addTimelineEntry($id, 'employee_updated', json_encode($previousData), json_encode($data), 'Employee updated', $userId);
-        (new AuditService())->log('EMPLOYEE_UPDATED', 'employees', $id, json_encode($previousData), $data);
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 
     /**
@@ -644,6 +717,75 @@ final class EmployeeService
 
         (new AuditService())->log('EMPLOYEE_BULK_DEACTIVATED', 'employees', null, null, ['count' => $count, 'ids' => $ids]);
         return $count;
+    }
+
+    /**
+     * Validate role assignment
+     */
+    private function validateRoleAssignment(string $roleId): void
+    {
+        $currentUser = current_user();
+        if (!$currentUser) {
+            throw new InvalidArgumentException('You must be logged in to assign roles.');
+        }
+
+        // Check if role exists
+        $stmt = Database::connection()->prepare('SELECT id, name FROM roles WHERE id = ?');
+        $stmt->execute([$roleId]);
+        $role = $stmt->fetch();
+
+        if (!$role) {
+            throw new InvalidArgumentException('Invalid role selected.');
+        }
+
+        // Only administrators can assign Administrator or HR roles
+        if ($currentUser['role_slug'] !== 'administrator' && in_array($role['name'], ['Administrator', 'HR'], true)) {
+            throw new InvalidArgumentException('Only administrators can assign Administrator or HR roles.');
+        }
+    }
+
+    /**
+     * Generate username from employee number
+     */
+    private function generateUsername(string $employeeNumber): string
+    {
+        // Use employee number as base, ensure uniqueness
+        $baseUsername = strtoupper(str_replace(['-', ' ', '_'], '', $employeeNumber));
+        
+        // Check if username already exists
+        $stmt = Database::connection()->prepare('SELECT COUNT(*) FROM users WHERE username = ?');
+        $stmt->execute([$baseUsername]);
+        
+        if ((int) $stmt->fetchColumn() === 0) {
+            return $baseUsername;
+        }
+
+        // If exists, append a number
+        $counter = 1;
+        do {
+            $username = $baseUsername . $counter;
+            $stmt = Database::connection()->prepare('SELECT COUNT(*) FROM users WHERE username = ?');
+            $stmt->execute([$username]);
+            $counter++;
+        } while ((int) $stmt->fetchColumn() > 0 && $counter < 100);
+
+        return $username;
+    }
+
+    /**
+     * Generate secure temporary password
+     */
+    private function generateTemporaryPassword(): string
+    {
+        $length = 12;
+        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+        $password = '';
+        
+        for ($i = 0; $i < $length; $i++) {
+            $password .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+        
+        return $password;
     }
 
     /**
@@ -996,18 +1138,18 @@ final class EmployeeService
      * @param string $employeeId Employee ID
      * @param array $employeeData Employee data array
      * @param string $passwordHash Hashed password
+     * @param int $roleId Role ID
+     * @param string $username Username
      * @return void
      */
-    private function createUserForEmployee(string $employeeId, array $employeeData, string $passwordHash): void
+    private function createUserForEmployee(string $employeeId, array $employeeData, string $passwordHash, int $roleId, string $username): void
     {
         $timestamp = date('Y-m-d H:i:s');
-        $username = trim($employeeData['username'] ?? '');
         $email = trim($employeeData['email'] ?? '');
         $fullName = trim($employeeData['first_name'] . ' ' . $employeeData['last_name']);
-        $roleId = 3; // Default to Employee role
 
         // Log the start of user creation attempt
-        error_log("[$timestamp] Automatic user creation attempt for employee: $employeeId, username: $username, email: $email");
+        error_log("[$timestamp] Automatic user creation attempt for employee: $employeeId, username: $username, email: $email, role_id: $roleId");
 
         try {
             // Step 1: Verify database connection
@@ -1040,7 +1182,7 @@ final class EmployeeService
             }
 
             // Step 3: Validate users table schema
-            $requiredColumns = ['id', 'username', 'password_hash', 'role_id', 'employee_id', 'full_name', 'email', 'status', 'created_at', 'updated_at'];
+            $requiredColumns = ['id', 'username', 'password_hash', 'role_id', 'employee_id', 'full_name', 'email', 'status', 'created_at', 'updated_at', 'must_change_password'];
             $missingColumns = [];
             
             try {
@@ -1100,8 +1242,8 @@ final class EmployeeService
 
             // Step 5: Prepare and execute user insertion
             $userIdForUser = uuid_v4();
-            $userSql = 'INSERT INTO users (id, username, password_hash, role_id, employee_id, full_name, email, status, created_at, updated_at)
-                        VALUES (:id, :username, :password_hash, :role_id, :employee_id, :full_name, :email, "active", NOW(), NOW())';
+            $userSql = 'INSERT INTO users (id, username, password_hash, role_id, employee_id, full_name, email, status, must_change_password, failed_attempts, created_at, updated_at)
+                        VALUES (:id, :username, :password_hash, :role_id, :employee_id, :full_name, :email, "active", 1, 0, NOW(), NOW())';
             
             $userStmt = $db->prepare($userSql);
             
@@ -1142,18 +1284,20 @@ final class EmployeeService
             $userStmt->execute($userParams);
             
             error_log(sprintf(
-                "[$timestamp] Automatic user creation succeeded. Employee ID: %s, Username: %s, User ID: %s",
+                "[$timestamp] Automatic user creation succeeded. Employee ID: %s, Username: %s, User ID: %s, Role ID: %s",
                 $employeeId,
                 $username,
-                $userIdForUser
+                $userIdForUser,
+                $roleId
             ));
 
         } catch (\Throwable $e) {
             error_log(sprintf(
-                "[$timestamp] Automatic user creation failed.\nEmployee ID: %s\nUsername: %s\nEmail: %s\nException: %s\nSQLSTATE: %s\nError Code: %s\nMessage: %s\nTrace: %s",
+                "[$timestamp] Automatic user creation failed.\nEmployee ID: %s\nUsername: %s\nEmail: %s\nRole ID: %s\nException: %s\nSQLSTATE: %s\nError Code: %s\nMessage: %s\nTrace: %s",
                 $employeeId,
                 $username,
                 $email,
+                $roleId,
                 get_class($e),
                 $e->getCode(),
                 $e->getCode(),
@@ -1196,27 +1340,29 @@ final class EmployeeService
      * @param string $userId User ID
      * @param array $employeeData Employee data array
      * @param string|null $passwordHash Hashed password (null if not changed)
+     * @param int $roleId Role ID
      * @return void
      */
-    private function updateUserForEmployee(string $userId, array $employeeData, ?string $passwordHash): void
+    private function updateUserForEmployee(string $userId, array $employeeData, ?string $passwordHash, int $roleId): void
     {
         $timestamp = date('Y-m-d H:i:s');
         $username = trim($employeeData['username'] ?? '');
         $email = trim($employeeData['email'] ?? '');
         $fullName = trim($employeeData['first_name'] . ' ' . $employeeData['last_name']);
 
-        error_log("[$timestamp] Automatic user update attempt for user: $userId, username: $username, email: $email");
+        error_log("[$timestamp] Automatic user update attempt for user: $userId, username: $username, email: $email, role_id: $roleId");
 
         try {
             $db = Database::connection();
             
             // Build update SQL dynamically based on whether password is being updated
-            $userUpdateSql = 'UPDATE users SET username = :username, full_name = :full_name, email = :email';
+            $userUpdateSql = 'UPDATE users SET username = :username, full_name = :full_name, email = :email, role_id = :role_id';
             $userUpdateParams = [
                 'id' => $userId,
                 'username' => $username,
                 'full_name' => $fullName,
                 'email' => $email,
+                'role_id' => $roleId,
             ];
             
             if ($passwordHash !== null) {
@@ -1241,17 +1387,19 @@ final class EmployeeService
             $userUpdateStmt->execute($userUpdateParams);
             
             error_log(sprintf(
-                "[$timestamp] Automatic user update succeeded. User ID: %s, Username: %s",
+                "[$timestamp] Automatic user update succeeded. User ID: %s, Username: %s, Role ID: %s",
                 $userId,
-                $username
+                $username,
+                $roleId
             ));
 
         } catch (\Throwable $e) {
             error_log(sprintf(
-                "[$timestamp] Automatic user update failed.\nUser ID: %s\nUsername: %s\nEmail: %s\nException: %s\nSQLSTATE: %s\nError Code: %s\nMessage: %s\nTrace: %s",
+                "[$timestamp] Automatic user update failed.\nUser ID: %s\nUsername: %s\nEmail: %s\nRole ID: %s\nException: %s\nSQLSTATE: %s\nError Code: %s\nMessage: %s\nTrace: %s",
                 $userId,
                 $username,
                 $email,
+                $roleId,
                 get_class($e),
                 $e->getCode(),
                 $e->getCode(),

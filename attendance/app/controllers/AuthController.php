@@ -11,6 +11,9 @@ final class AuthController extends BaseController
 {
     public function showLogin(): void
     {
+        if (isset($_SESSION['user'])) {
+            redirect('dashboard');
+        }
         $this->render('auth/login', ['title' => 'Login']);
     }
 

@@ -24,6 +24,88 @@
     </div>
 <?php endif; ?>
 
+<!-- Employee Credentials Modal -->
+<?php if (isset($_SESSION['employee_credentials'])): ?>
+    <?php $credentials = $_SESSION['employee_credentials']; unset($_SESSION['employee_credentials']); ?>
+    <div class="modal fade" id="credentialsModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-check-circle"></i> Employee Account Created</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i> Please copy these credentials before closing this modal. The temporary password will not be shown again.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Username:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="credentialUsername" value="<?= e($credentials['username']) ?>" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('credentialUsername')">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Role:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="credentialRole" value="<?= e($credentials['role']) ?>" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('credentialRole')">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Temporary Password:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control font-monospace" id="credentialPassword" value="<?= e($credentials['password']) ?>" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('credentialPassword')">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            <i class="bi bi-exclamation-triangle"></i> The user will be required to change this password upon first login.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="window.location.href='<?= url('employees/view?id=' . $credentials['employee_id']) ?>'">
+                        <i class="bi bi-x-lg"></i> Close
+                    </button>
+                    <a href="<?= url('employees/view?id=' . $credentials['employee_id']) ?>" class="btn btn-primary">
+                        <i class="bi bi-person"></i> View Employee Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var modal = new bootstrap.Modal(document.getElementById('credentialsModal'));
+            modal.show();
+        });
+
+        function copyToClipboard(elementId) {
+            var copyText = document.getElementById(elementId);
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value).then(function() {
+                var button = copyText.nextElementSibling;
+                var originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-success');
+                setTimeout(function() {
+                    button.innerHTML = originalHTML;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-outline-secondary');
+                }, 2000);
+            });
+        }
+    </script>
+<?php endif; ?>
+
 <div class="row g-3">
     <!-- Profile Card -->
     <div class="col-lg-4">

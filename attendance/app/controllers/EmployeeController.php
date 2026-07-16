@@ -55,6 +55,7 @@ final class EmployeeController extends BaseController
             'departments' => $this->directory->departments(),
             'branches' => $this->directory->branches(),
             'shifts' => $this->directory->shifts(),
+            'roles' => $this->directory->roles(),
             'supervisors' => $this->service->list([], 1, 1000)['data'],
         ]);
     }
@@ -69,7 +70,35 @@ final class EmployeeController extends BaseController
         
         try {
             $id = $this->service->create($_POST);
-            flash('success', 'Employee created successfully.');
+            
+            // Check if temporary password was generated
+            $tempPassword = $_SESSION['temp_password_' . $id] ?? null;
+            $generatedUsername = $_SESSION['generated_username_' . $id] ?? null;
+            unset($_SESSION['temp_password_' . $id]);
+            unset($_SESSION['generated_username_' . $id]);
+            
+            if ($tempPassword && $generatedUsername) {
+                $roleId = $_POST['role_id'];
+                
+                // Get role name
+                $db = \App\Core\Database::connection();
+                $stmt = $db->prepare('SELECT name FROM roles WHERE id = ?');
+                $stmt->execute([$roleId]);
+                $roleName = $stmt->fetchColumn();
+                
+                // Store credentials in session for modal display
+                $_SESSION['employee_credentials'] = [
+                    'username' => $generatedUsername,
+                    'role' => $roleName,
+                    'password' => $tempPassword,
+                    'employee_id' => $id
+                ];
+                
+                flash('success', 'Employee account created successfully.');
+            } else {
+                flash('success', 'Employee created successfully.');
+            }
+            
             redirect('employees/show?id=' . $id);
         } catch (Throwable $exception) {
             flash('error', $exception->getMessage());
@@ -114,12 +143,15 @@ final class EmployeeController extends BaseController
             redirect('employees');
         }
 
+        $currentUser = current_user();
         $this->render('employees/edit', [
             'title' => 'Edit Employee - ' . e($employee['full_name']),
             'employee' => $employee,
             'departments' => $this->directory->departments(),
             'branches' => $this->directory->branches(),
             'shifts' => $this->directory->shifts(),
+            'roles' => $this->directory->roles(),
+            'current_user_role' => $currentUser['role_slug'] ?? '',
             'supervisors' => $this->service->list([], 1, 1000)['data'],
         ]);
     }

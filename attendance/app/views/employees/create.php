@@ -121,6 +121,19 @@
                     <label class="form-label">Password</label>
                     <input class="form-control" type="password" name="password" placeholder="For system login">
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Role <span class="text-danger">*</span></label>
+                    <select class="form-select" name="role_id" required>
+                        <option value="">Select Role</option>
+                        <?php if (empty($roles)): ?>
+                            <option value="" disabled>No roles configured</option>
+                        <?php else: ?>
+                            <?php foreach ($roles as $role): ?>
+                                <option value="<?= e($role['id']) ?>" <?= $role['name'] === 'Employee' ? 'selected' : '' ?>><?= e($role['name']) ?></option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </div>
                 <div class="col-md-12">
                     <label class="form-label">Home Address</label>
                     <textarea class="form-control" name="home_address" rows="2"></textarea>

@@ -38,4 +38,9 @@ final class DirectoryService
     {
         return Database::connection()->query("SELECT id, name, time_in, time_out FROM shifts WHERE status = 'active' ORDER BY name")->fetchAll();
     }
+
+    public function roles(): array
+    {
+        return Database::connection()->query("SELECT id, name FROM roles ORDER BY id")->fetchAll();
+    }
 }
