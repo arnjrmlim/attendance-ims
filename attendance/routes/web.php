@@ -76,6 +76,18 @@ $router->post('/manual-attendance/approve', [ManualAttendanceController::class, 
 $router->post('/manual-attendance/reject', [ManualAttendanceController::class, 'reject']);
 $router->post('/manual-attendance/bulk-action', [ManualAttendanceController::class, 'bulkAction']);
 
+/* ── Manual Attendance JSON API ─────────────────────────────────────── */
+$router->get('/manual-attendance/api/list',        [ManualAttendanceController::class, 'apiList']);
+$router->get('/manual-attendance/api/admin-list',  [ManualAttendanceController::class, 'apiAdminList']);
+$router->get('/manual-attendance/api/stats',       [ManualAttendanceController::class, 'apiStats']);
+$router->post('/manual-attendance/api/store',      [ManualAttendanceController::class, 'apiStore']);
+$router->post('/manual-attendance/api/update',     [ManualAttendanceController::class, 'apiUpdate']);
+$router->post('/manual-attendance/api/delete',     [ManualAttendanceController::class, 'apiDelete']);
+$router->post('/manual-attendance/api/request',    [ManualAttendanceController::class, 'apiRequest']);
+$router->post('/manual-attendance/api/approve',    [ManualAttendanceController::class, 'apiApprove']);
+$router->post('/manual-attendance/api/reject',     [ManualAttendanceController::class, 'apiReject']);
+$router->post('/manual-attendance/api/bulk-action',[ManualAttendanceController::class, 'apiBulkAction']);
+
 /* ── Phase 3: Announcements ─────────────────────────────────────────── */
 $router->get('/announcements', [AnnouncementController::class, 'index']);
 $router->get('/announcements/create', [AnnouncementController::class, 'create']);

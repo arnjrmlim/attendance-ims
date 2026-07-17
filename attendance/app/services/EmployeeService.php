@@ -643,29 +643,69 @@ final class EmployeeService
     }
 
     /**
-     * Get attendance summary counts for an employee (used on the profile page)
+     * Get attendance summary counts for an employee (used on the profile page).
+     * Returns present / late / absent day counts and total overtime hours.
+     *
+     * overtime_days is derived from the raw attendance table (always available)
+     * so this query is safe even before the break/OT upgrade migration runs.
+     * break_minutes and overtime_minutes fall back to 0 via COALESCE if the
+     * columns don't exist yet (the engine self-heals on next write).
      */
     public function getAttendanceSummary(string $id): array
     {
         $db = Database::connection();
 
+        // Check whether the new columns exist; if not, skip them gracefully
+        $hasBreak = (int) $db->query(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME   = 'attendance_summary'
+                AND COLUMN_NAME  = 'break_minutes'"
+        )->fetchColumn() > 0;
+
+        $hasOvertimeCols = (int) $db->query(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME   = 'attendance_summary'
+                AND COLUMN_NAME  = 'overtime_minutes'"
+        )->fetchColumn() > 0;
+
+        $breakExpr    = $hasBreak       ? 'SUM(COALESCE(break_minutes,   0))' : '0';
+        $overtimeExpr = $hasOvertimeCols ? 'SUM(COALESCE(overtime_minutes,0))' : '0';
+
         $stmt = $db->prepare(
             "SELECT
                 SUM(CASE WHEN day_status = 'present' AND is_late = 0 THEN 1 ELSE 0 END) AS present,
-                SUM(CASE WHEN is_late = 1 THEN 1 ELSE 0 END)                            AS late,
-                SUM(CASE WHEN day_status = 'absent' THEN 1 ELSE 0 END)                  AS absent,
-                SUM(COALESCE(overtime_minutes,0))                                        AS overtime_minutes
+                SUM(CASE WHEN is_late = 1                               THEN 1 ELSE 0 END) AS late,
+                SUM(CASE WHEN day_status = 'absent'                     THEN 1 ELSE 0 END) AS absent,
+                {$overtimeExpr}                                                             AS overtime_minutes,
+                {$breakExpr}                                                                AS break_minutes
              FROM attendance_summary
              WHERE employee_id = ?"
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch();
 
+        // Count OT days from raw attendance (always available; no column risk)
+        $stmtOt = $db->prepare(
+            "SELECT COUNT(DISTINCT attendance_date)
+               FROM attendance
+              WHERE employee_id    = ?
+                AND attendance_type IN ('overtime_in','overtime_out')"
+        );
+        $stmtOt->execute([$id]);
+        $overtimeDays = (int) $stmtOt->fetchColumn();
+
+        $overtimeMinutes = (int) ($row['overtime_minutes'] ?? 0);
+
         return [
-            'present'          => (int) ($row['present']         ?? 0),
-            'late'             => (int) ($row['late']            ?? 0),
-            'absent'           => (int) ($row['absent']          ?? 0),
-            'overtime_hours'   => round(((int) ($row['overtime_minutes'] ?? 0)) / 60, 1),
+            'present'         => (int) ($row['present']       ?? 0),
+            'late'            => (int) ($row['late']          ?? 0),
+            'absent'          => (int) ($row['absent']        ?? 0),
+            'overtime_hours'  => round($overtimeMinutes / 60, 1),
+            'overtime_minutes'=> $overtimeMinutes,
+            'break_minutes'   => (int) ($row['break_minutes'] ?? 0),
+            'overtime_days'   => $overtimeDays,
         ];
     }
 

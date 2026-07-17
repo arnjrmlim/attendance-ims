@@ -97,3 +97,96 @@ body {
         border-color: #bbb;
     }
 }
+
+/* ── Attendance type selector buttons ──────────────────────────────
+   All types share a single neutral base style. The selected state
+   is indicated by a blue border + tinted background, not by
+   assigning a different bright color per type.
+   ────────────────────────────────────────────────────────────────── */
+.att-type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    padding: .75rem .5rem;
+    background: #fff;
+    border: 1.5px solid var(--ams-line);
+    border-radius: 8px;
+    color: var(--ams-ink);
+    font-size: .8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+    width: 100%;
+    min-height: 74px;
+    text-align: center;
+    user-select: none;
+}
+.att-type-btn i {
+    font-size: 1.25rem;
+    color: var(--ams-muted);
+    transition: color .15s;
+}
+.att-type-btn:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+/* Selected state — driven by the hidden radio :checked */
+.btn-check:checked + .att-type-btn {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+.btn-check:checked + .att-type-btn i {
+    color: #2563eb;
+}
+
+/* Focus ring for accessibility */
+.btn-check:focus + .att-type-btn {
+    outline: 2px solid #93c5fd;
+    outline-offset: 2px;
+}
+
+/* Selected indicator dot */
+.att-type-btn::after {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: transparent;
+    transition: background .15s;
+}
+.btn-check:checked + .att-type-btn::after {
+    background: #2563eb;
+}
+
+/* ── Attendance status indicator bar ──────────────────────────────
+   Shown below the type grid, displays the selected type name.
+   ────────────────────────────────────────────────────────────────── */
+.att-selection-bar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .6rem .875rem;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    font-size: .875rem;
+    color: #1d4ed8;
+    font-weight: 500;
+}
+.att-selection-bar i { color: #2563eb; }
+
+/* ── Inline info note (replaces large alert-info banner) ─────────── */
+.att-info-note {
+    font-size: .8125rem;
+    color: var(--ams-muted);
+    display: flex;
+    align-items: flex-start;
+    gap: .4rem;
+    line-height: 1.4;
+}
+.att-info-note i { flex-shrink: 0; margin-top: .1rem; }

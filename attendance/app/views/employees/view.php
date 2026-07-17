@@ -190,7 +190,10 @@
             <div class="col">
                 <div class="panel p-3 text-center">
                     <div class="fs-2 fw-bold text-primary"><?= number_format((float) ($attendance['overtime_hours'] ?? 0), 1) ?>h</div>
-                    <div class="small text-muted"><i class="bi bi-hourglass-split"></i> Overtime</div>
+                    <div class="small text-muted"><i class="bi bi-lightning"></i> Overtime</div>
+                    <?php if (($attendance['overtime_days'] ?? 0) > 0): ?>
+                        <div class="text-muted" style="font-size:.72rem;"><?= (int) $attendance['overtime_days'] ?> day<?= $attendance['overtime_days'] !== 1 ? 's' : '' ?></div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

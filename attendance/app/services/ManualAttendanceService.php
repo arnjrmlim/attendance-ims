@@ -4,9 +4,9 @@
  * ManualAttendanceService
  *
  * Handles:
- *   - Employee self-service manual time-in/out requests (pending → approve/reject)
- *   - Administrator direct manual attendance entry
- *   - Attendance validation (duplicate, time-order, out-of-hours warnings)
+ *   - Employee self-service manual attendance requests (all 6 types)
+ *   - Administrator direct manual attendance entry (all 6 types)
+ *   - Delegates ALL summary computation to AttendanceEngine
  */
 
 declare(strict_types=1);
@@ -17,65 +17,68 @@ use App\Core\Database;
 
 final class ManualAttendanceService
 {
-    /** Fixed reason stored for auto-approved manual entries (column is NOT NULL). */
+    /** Reason stored for auto-approved employee self-service entries. */
     private const AUTO_REASON = 'Manual attendance entry';
 
     private AuditService        $audit;
     private NotificationService $notify;
     private SettingsService     $cfg;
+    private AttendanceEngine    $engine;
 
     public function __construct()
     {
         $this->audit  = new AuditService();
         $this->notify = new NotificationService();
         $this->cfg    = new SettingsService();
+        $this->engine = new AttendanceEngine();
     }
 
     /* ════════════════════════════════════════════════════════
-     * Employee Requests
+     * Employee Self-Service Requests
      * ════════════════════════════════════════════════════════ */
 
     /**
-     * Submit a manual time-in or time-out request (employee).
-     * Returns ['success' => bool, 'warnings' => [], 'error' => '']
+     * Submit a manual attendance request (employee self-service).
+     *
+     * Supported types: time_in | break_out | break_in | time_out |
+     *                  overtime_in | overtime_out
+     *
+     * Date and server time are always set by the server — employees cannot
+     * choose when their entry is recorded.
+     *
+     * The entry is applied immediately (auto-approved) without admin review.
+     *
+     * @return array{success:bool, id?:string, warnings?:list<string>, error?:string}
      */
     public function submitRequest(array $data): array
     {
         $employeeId = $data['employee_id']  ?? '';
-        $type       = $data['request_type'] ?? '';   // time_in | time_out
+        $rawType    = $data['request_type'] ?? '';
+        $type       = $this->engine->canonicalType($rawType);
 
-        // Date and time are ALWAYS the server's current date/time. They are
-        // deliberately never read from client input, so an employee cannot
-        // edit, backdate, or otherwise choose when their entry is recorded.
-        $date = date('Y-m-d');
-        $time = date('H:i:s');
-
-        /* ── Validation ──────────────────────────────────────── */
-        if (!in_array($type, ['time_in', 'time_out'], true)) {
-            return ['success' => false, 'error' => 'Invalid request type.'];
+        if (!in_array($type, AttendanceEngine::VALID_TYPES, true)) {
+            return ['success' => false, 'error' => 'Invalid request type. Valid types: '
+                . implode(', ', AttendanceEngine::VALID_TYPES)];
+        }
+        if (empty($employeeId)) {
+            return ['success' => false, 'error' => 'Employee ID is required.'];
         }
 
-        $warnings = $this->validateRequest($employeeId, $type, $date, $time);
+        // Server controls date and time — never trust client input
+        $date     = date('Y-m-d');
+        $time     = date('H:i:s');
+        $datetime = $date . ' ' . $time;
 
-        // Prevent recording the same type twice in one day (requests are
-        // auto-approved now, so any existing row for today already counts).
-        $dup = Database::connection()->prepare(
-            "SELECT id FROM manual_attendance_requests
-             WHERE employee_id = ? AND request_type = ? AND request_date = ?"
-        );
-        $dup->execute([$employeeId, $type, $date]);
-        if ($dup->fetch()) {
-            $typeLabelDup = $type === 'time_in' ? 'Time In' : 'Time Out';
-            return ['success' => false, 'error' => "A manual {$typeLabelDup} has already been recorded today."];
-        }
+        $warnings = $this->validateRequestType($employeeId, $type, $date, $time);
 
-        // Manual attendance is the primary attendance method: it is recorded
-        // immediately and does not require administrator approval.
+        // Insert the request record (audit trail)
         $id = uuid_v4();
         Database::connection()->prepare(
             "INSERT INTO manual_attendance_requests
-             (id, employee_id, request_type, request_date, requested_time, reason, status, reviewed_at, admin_remarks)
-             VALUES (?, ?, ?, ?, ?, ?, 'Approved', NOW(), 'Auto-approved: manual attendance does not require admin approval.')"
+             (id, employee_id, request_type, request_date, requested_time,
+              reason, reason_category, status, reviewed_at, admin_remarks)
+             VALUES (?, ?, ?, ?, ?, ?, 'Other', 'Approved', NOW(),
+                     'Auto-approved: attendance recorded immediately.')"
         )->execute([$id, $employeeId, $type, $date, $time, self::AUTO_REASON]);
 
         $this->audit->log('MANUAL_ATTENDANCE_REQUEST_SUBMITTED', 'manual_attendance', $id, null, [
@@ -85,13 +88,15 @@ final class ManualAttendanceService
             'time'        => $time,
         ]);
 
-        // Apply immediately — no approval step required.
-        $this->applyApprovedRequest([
-            'employee_id'   => $employeeId,
-            'request_date'  => $date,
-            'requested_time' => $time,
-            'request_type'  => $type,
-        ]);
+        // Write the raw attendance tap and rebuild the summary via AttendanceEngine
+        $this->engine->recordTap(
+            $employeeId,
+            $date,
+            $datetime,
+            $type,
+            'manual',
+            current_user()['id'] ?? null
+        );
 
         $this->audit->log('MANUAL_ATTENDANCE_AUTO_APPROVED', 'manual_attendance', $id, null, [
             'employee_id' => $employeeId,
@@ -100,12 +105,12 @@ final class ManualAttendanceService
             'time'        => $time,
         ]);
 
-        // Notify admins/HR for visibility (informational, not an approval request)
-        $typeLabel = $type === 'time_in' ? 'Time In' : 'Time Out';
+        $typeLabel = AttendanceEngine::LABELS[$type] ?? $type;
         $empName   = $this->getEmployeeName($employeeId);
+
         $this->notify->notifyRoles(
             ['administrator', 'hr'],
-            "Manual Attendance Recorded",
+            'Manual Attendance Recorded',
             "{$empName} recorded a manual {$typeLabel} for {$date}.",
             'info'
         );
@@ -114,7 +119,8 @@ final class ManualAttendanceService
     }
 
     /**
-     * List manual attendance requests (for admin approval queue or employee own).
+     * List manual attendance requests (paginated).
+     * Admin/HR see all; employees see only their own.
      */
     public function listRequests(array $filters = [], int $page = 1, int $perPage = 20): array
     {
@@ -167,11 +173,16 @@ final class ManualAttendanceService
         );
         $stmt->execute($params);
 
-        return ['total' => $total, 'rows' => $stmt->fetchAll(), 'page' => $page, 'per_page' => $perPage];
+        return [
+            'total'    => $total,
+            'rows'     => $stmt->fetchAll(),
+            'page'     => $page,
+            'per_page' => $perPage,
+        ];
     }
 
     /**
-     * Approve a manual attendance request.
+     * Approve a pending manual attendance request.
      */
     public function approve(string $requestId, string $reviewerUserId, string $remarks = ''): array
     {
@@ -189,19 +200,27 @@ final class ManualAttendanceService
              WHERE id = ?"
         )->execute([$reviewerUserId, $remarks, $requestId]);
 
-        // Apply to attendance records
-        $this->applyApprovedRequest($req);
+        // Write the approved tap through the engine
+        $type     = $this->engine->canonicalType($req['request_type']);
+        $datetime = $req['request_date'] . ' ' . $req['requested_time'];
+
+        $this->engine->recordTap(
+            $req['employee_id'],
+            $req['request_date'],
+            $datetime,
+            $type,
+            'manual',
+            $reviewerUserId
+        );
 
         $this->audit->log('MANUAL_ATTENDANCE_APPROVED', 'manual_attendance', $requestId, $req, ['remarks' => $remarks]);
 
-        // Notify employee
-        $userStmt = Database::connection()->prepare(
-            "SELECT u.id FROM users u WHERE u.employee_id = ?"
-        );
+        // Notify the employee
+        $userStmt = Database::connection()->prepare("SELECT id FROM users WHERE employee_id = ?");
         $userStmt->execute([$req['employee_id']]);
         $userId = $userStmt->fetchColumn();
         if ($userId) {
-            $typeLabel = $req['request_type'] === 'time_in' ? 'Time In' : 'Time Out';
+            $typeLabel = AttendanceEngine::LABELS[$type] ?? $type;
             $this->notify->notify(
                 $userId,
                 'Manual Attendance Approved',
@@ -214,7 +233,7 @@ final class ManualAttendanceService
     }
 
     /**
-     * Reject a manual attendance request.
+     * Reject a pending manual attendance request.
      */
     public function reject(string $requestId, string $reviewerUserId, string $remarks = ''): array
     {
@@ -234,12 +253,12 @@ final class ManualAttendanceService
 
         $this->audit->log('MANUAL_ATTENDANCE_REJECTED', 'manual_attendance', $requestId, $req, ['remarks' => $remarks]);
 
-        // Notify employee
         $userStmt = Database::connection()->prepare("SELECT id FROM users WHERE employee_id = ?");
         $userStmt->execute([$req['employee_id']]);
         $userId = $userStmt->fetchColumn();
         if ($userId) {
-            $typeLabel = $req['request_type'] === 'time_in' ? 'Time In' : 'Time Out';
+            $type      = $this->engine->canonicalType($req['request_type']);
+            $typeLabel = AttendanceEngine::LABELS[$type] ?? $type;
             $this->notify->notify(
                 $userId,
                 'Manual Attendance Rejected',
@@ -252,7 +271,7 @@ final class ManualAttendanceService
     }
 
     /**
-     * Bulk approve/reject.
+     * Bulk approve or reject multiple requests.
      */
     public function bulkAction(array $ids, string $action, string $reviewerUserId, string $remarks = ''): array
     {
@@ -275,39 +294,74 @@ final class ManualAttendanceService
      * ════════════════════════════════════════════════════════ */
 
     /**
-     * Administrator creates a manual attendance record directly.
+     * Administrator creates a manual attendance entry directly.
+     *
+     * Accepts all 6 attendance types in separate time fields:
+     *   time_in, break_out, break_in, time_out, overtime_in, overtime_out
+     *
+     * Each non-empty time field becomes a raw attendance row; the engine
+     * then recalculates the official summary from all rows for that date.
      */
     public function adminCreate(array $data, string $adminUserId): array
     {
-        $employeeId = $data['employee_id']      ?? '';
-        $date       = $data['attendance_date']  ?? '';
-        $timeIn     = !empty($data['time_in'])  ? $date . ' ' . $data['time_in']  : null;
-        $timeOut    = !empty($data['time_out']) ? $date . ' ' . $data['time_out'] : null;
-        $status     = $data['attendance_status'] ?? 'present';
-        $method     = $data['method']           ?? 'Manual Entry';
-        $reason     = trim($data['reason']      ?? '');
-        $remarks    = trim($data['admin_remarks'] ?? '');
+        $employeeId = trim($data['employee_id']     ?? '');
+        $date       = trim($data['attendance_date'] ?? '');
+        $method     = $data['method']               ?? 'Manual Entry';
+        $reason     = trim($data['reason']          ?? '');
+        $remarks    = trim($data['admin_remarks']   ?? '');
+        $status     = $data['attendance_status']    ?? 'present';
 
         if (!$employeeId || !$date || !$reason) {
             return ['success' => false, 'error' => 'Employee, date and reason are required.'];
         }
 
-        // Validate time order
-        if ($timeIn && $timeOut && strtotime($timeOut) <= strtotime($timeIn)) {
-            return ['success' => false, 'error' => 'Time Out must be after Time In.'];
+        // Collect every provided time field into typed taps
+        $taps = $this->extractTaps($data, $date);
+
+        // Basic time-order validation
+        $orderError = $this->validateTimeOrder($taps, $date);
+        if ($orderError) {
+            return ['success' => false, 'error' => $orderError];
         }
 
-        $warnings = $this->validateAdminEntry($employeeId, $date, $data);
+        $warnings = $this->buildAdminWarnings($employeeId, $date, $taps);
 
-        $id = uuid_v4();
-        Database::connection()->prepare(
-            "INSERT INTO admin_manual_attendance
-             (id, employee_id, attendance_date, time_in, time_out, attendance_status, method, reason, admin_remarks, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        )->execute([$id, $employeeId, $date, $timeIn, $timeOut, $status, $method, $reason, $remarks, $adminUserId]);
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $id = uuid_v4();
 
-        // Also update attendance_summary
-        $this->syncSummary($employeeId, $date, $timeIn, $timeOut, $status);
+            // Store the admin_manual_attendance record (canonical columns)
+            $db->prepare(
+                "INSERT INTO admin_manual_attendance
+                 (id, employee_id, attendance_date, time_in, time_out,
+                  attendance_status, method, reason, admin_remarks, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            )->execute([
+                $id, $employeeId, $date,
+                $taps[AttendanceEngine::TYPE_TIME_IN]  ?? null,
+                $taps[AttendanceEngine::TYPE_TIME_OUT] ?? null,
+                $status, $method, $reason, $remarks, $adminUserId,
+            ]);
+
+            // Write one raw attendance row per provided type, then rebuild once
+            foreach ($taps as $type => $datetime) {
+                $db->prepare(
+                    "INSERT INTO attendance
+                     (id, employee_id, attendance_date, time_recorded, attendance_type,
+                      method, recorded_by, created_at)
+                     VALUES (?, ?, ?, ?, ?, 'manual', ?, NOW())"
+                )->execute([uuid_v4(), $employeeId, $date, $datetime, $type, $adminUserId]);
+            }
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+
+        // One rebuild call covers all newly inserted taps
+        $this->engine->rebuildSummary($employeeId, $date);
 
         $this->audit->log('ADMIN_MANUAL_ATTENDANCE_CREATED', 'manual_attendance', $id, null, $data);
 
@@ -315,7 +369,132 @@ final class ManualAttendanceService
     }
 
     /**
-     * List admin-created manual attendance records.
+     * Administrator updates an existing manual attendance entry.
+     */
+    public function adminUpdate(string $id, array $data, string $adminUserId): array
+    {
+        $db   = Database::connection();
+        $stmt = $db->prepare('SELECT * FROM admin_manual_attendance WHERE id = ?');
+        $stmt->execute([$id]);
+        $existing = $stmt->fetch();
+
+        if (!$existing) {
+            return ['success' => false, 'error' => 'Record not found.'];
+        }
+
+        $date    = trim($data['attendance_date']  ?? $existing['attendance_date']);
+        $method  = $data['method']                ?? $existing['method'];
+        $reason  = trim($data['reason']           ?? $existing['reason']);
+        $remarks = trim($data['admin_remarks']    ?? $existing['admin_remarks'] ?? '');
+        $status  = $data['attendance_status']     ?? $existing['attendance_status'];
+
+        $taps = $this->extractTaps($data, $date);
+
+        $orderError = $this->validateTimeOrder($taps, $date);
+        if ($orderError) {
+            return ['success' => false, 'error' => $orderError];
+        }
+
+        $warnings = $this->buildAdminWarnings($existing['employee_id'], $date, $taps);
+
+        $db->beginTransaction();
+        try {
+            // Update the admin record
+            $db->prepare(
+                'UPDATE admin_manual_attendance
+                 SET attendance_date = ?, time_in = ?, time_out = ?,
+                     attendance_status = ?, method = ?, reason = ?,
+                     admin_remarks = ?, updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([
+                $date,
+                $taps[AttendanceEngine::TYPE_TIME_IN]  ?? null,
+                $taps[AttendanceEngine::TYPE_TIME_OUT] ?? null,
+                $status, $method, $reason, $remarks, $id,
+            ]);
+
+            // Remove old manual raw rows for this employee + date, then re-insert
+            $db->prepare(
+                "DELETE FROM attendance
+                  WHERE employee_id = ? AND attendance_date = ? AND method = 'manual'"
+            )->execute([$existing['employee_id'], $date]);
+
+            foreach ($taps as $type => $datetime) {
+                $db->prepare(
+                    "INSERT INTO attendance
+                     (id, employee_id, attendance_date, time_recorded, attendance_type,
+                      method, recorded_by, created_at)
+                     VALUES (?, ?, ?, ?, ?, 'manual', ?, NOW())"
+                )->execute([uuid_v4(), $existing['employee_id'], $date, $datetime, $type, $adminUserId]);
+            }
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+
+        $this->engine->rebuildSummary($existing['employee_id'], $date);
+
+        $this->audit->log('ADMIN_MANUAL_ATTENDANCE_UPDATED', 'manual_attendance', $id, $existing, $data);
+
+        return ['success' => true, 'warnings' => $warnings];
+    }
+
+    /**
+     * Administrator deletes a manual attendance entry and reverts the summary.
+     */
+    public function adminDelete(string $id, string $adminUserId): array
+    {
+        $stmt = Database::connection()->prepare(
+            'SELECT * FROM admin_manual_attendance WHERE id = ?'
+        );
+        $stmt->execute([$id]);
+        $existing = $stmt->fetch();
+
+        if (!$existing) {
+            return ['success' => false, 'error' => 'Record not found.'];
+        }
+
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $db->prepare('DELETE FROM admin_manual_attendance WHERE id = ?')->execute([$id]);
+
+            // Remove manual raw rows for this date; non-manual rows (QR, RFID, PIN) are preserved
+            $db->prepare(
+                "DELETE FROM attendance
+                  WHERE employee_id = ? AND attendance_date = ? AND method = 'manual'"
+            )->execute([$existing['employee_id'], $existing['attendance_date']]);
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+
+        // Rebuild from whatever non-manual rows remain (or delete summary if none)
+        $this->engine->rebuildSummary($existing['employee_id'], $existing['attendance_date']);
+
+        $this->audit->log('ADMIN_MANUAL_ATTENDANCE_DELETED', 'manual_attendance', $id, $existing, null);
+
+        return ['success' => true];
+    }
+
+    /**
+     * Paginated list of admin-created direct entries.
+     */
+    /**
+     * Paginated list of admin-created direct entries.
+     *
+     * break_out / break_in / overtime_in / overtime_out do NOT exist on
+     * admin_manual_attendance — that table only stores time_in / time_out as
+     * metadata.  The canonical break and OT values live in attendance_summary,
+     * computed by AttendanceEngine.  We LEFT JOIN the summary so the API
+     * response always includes those columns.
+     *
+     * The JOIN columns are selected conditionally so that this query is safe
+     * even on a database that has not yet run the upgrade migration.
      */
     public function listAdminEntries(array $filters = [], int $page = 1, int $perPage = 20): array
     {
@@ -336,6 +515,7 @@ final class ManualAttendanceService
         }
 
         $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
         $countStmt = Database::connection()->prepare(
             "SELECT COUNT(*) FROM admin_manual_attendance ama {$whereClause}"
         );
@@ -346,14 +526,54 @@ final class ManualAttendanceService
         $params[] = $perPage;
         $params[] = $offset;
 
-        $stmt = Database::connection()->prepare(
-            "SELECT ama.*,
-                    CONCAT(e.first_name,' ',e.last_name) AS employee_name,
-                    e.employee_number,
-                    u.username AS created_by_name
+        // Detect which optional columns exist on attendance_summary
+        $db = Database::connection();
+        $hasBreakOut  = $this->summaryColExists($db, 'break_out');
+        $hasBreakIn   = $this->summaryColExists($db, 'break_in');
+        $hasOtIn      = $this->summaryColExists($db, 'overtime_in');
+        $hasOtOut     = $this->summaryColExists($db, 'overtime_out');
+        $hasBreakMins = $this->summaryColExists($db, 'break_minutes');
+        $hasOtMins    = $this->summaryColExists($db, 'overtime_minutes');
+
+        $breakOutSel  = $hasBreakOut  ? 's.break_out'                       : 'NULL AS break_out';
+        $breakInSel   = $hasBreakIn   ? 's.break_in'                        : 'NULL AS break_in';
+        $otInSel      = $hasOtIn      ? 's.overtime_in'                     : 'NULL AS overtime_in';
+        $otOutSel     = $hasOtOut     ? 's.overtime_out'                    : 'NULL AS overtime_out';
+        $breakMinsSel = $hasBreakMins ? 'COALESCE(s.break_minutes,   0) AS break_minutes'    : '0 AS break_minutes';
+        $otMinsSel    = $hasOtMins    ? 'COALESCE(s.overtime_minutes, 0) AS overtime_minutes' : '0 AS overtime_minutes';
+
+        $stmt = $db->prepare(
+            "SELECT
+                ama.id,
+                ama.employee_id,
+                ama.attendance_date,
+                ama.time_in,
+                ama.time_out,
+                ama.attendance_status,
+                ama.method,
+                ama.reason,
+                ama.admin_remarks,
+                ama.created_by,
+                ama.created_at,
+                CONCAT(e.first_name,' ',e.last_name) AS employee_name,
+                e.employee_number,
+                u.username AS created_by_name,
+                {$breakOutSel},
+                {$breakInSel},
+                {$otInSel},
+                {$otOutSel},
+                {$breakMinsSel},
+                {$otMinsSel},
+                s.total_hours,
+                s.late_minutes,
+                s.undertime_minutes,
+                s.day_status
              FROM admin_manual_attendance ama
-             INNER JOIN employees e ON e.id = ama.employee_id
-             LEFT JOIN users u ON u.id = ama.created_by
+             INNER JOIN employees e  ON e.id  = ama.employee_id
+             LEFT  JOIN users u      ON u.id  = ama.created_by
+             LEFT  JOIN attendance_summary s
+                     ON s.employee_id    = ama.employee_id
+                    AND s.attendance_date = ama.attendance_date
              {$whereClause}
              ORDER BY ama.created_at DESC
              LIMIT ? OFFSET ?"
@@ -363,226 +583,189 @@ final class ManualAttendanceService
         return ['total' => $total, 'rows' => $stmt->fetchAll()];
     }
 
+    /**
+     * Check whether a column exists on attendance_summary.
+     * Cached per request so the INFORMATION_SCHEMA query runs at most once per column.
+     */
+    private function summaryColExists(\PDO $db, string $column): bool
+    {
+        static $cache = [];
+        if (!array_key_exists($column, $cache)) {
+            $cache[$column] = (int) $db->query(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME   = 'attendance_summary'
+                    AND COLUMN_NAME  = '{$column}'"
+            )->fetchColumn() > 0;
+        }
+        return $cache[$column];
+    }
+
+    /** Public wrapper used by the JSON API. */
+    public function listAdminEntriesPaged(array $filters = [], int $page = 1, int $perPage = 20): array
+    {
+        return $this->listAdminEntries($filters, $page, $perPage);
+    }
+
     /* ════════════════════════════════════════════════════════
-     * Validation
+     * Stats (for index page cards)
+     * ════════════════════════════════════════════════════════ */
+
+    public function getStats(?string $employeeId = null): array
+    {
+        $db = Database::connection();
+
+        if ($employeeId) {
+            $stmtP = $db->prepare("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Pending'  AND employee_id = ?");
+            $stmtP->execute([$employeeId]); $pending    = (int) $stmtP->fetchColumn();
+
+            $stmtA = $db->prepare("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Approved' AND employee_id = ?");
+            $stmtA->execute([$employeeId]); $approved   = (int) $stmtA->fetchColumn();
+
+            $stmtR = $db->prepare("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Rejected' AND employee_id = ?");
+            $stmtR->execute([$employeeId]); $rejected   = (int) $stmtR->fetchColumn();
+
+            $stmtT = $db->prepare("SELECT COUNT(*) FROM admin_manual_attendance WHERE employee_id = ?");
+            $stmtT->execute([$employeeId]); $adminTotal = (int) $stmtT->fetchColumn();
+        } else {
+            $pending    = (int) $db->query("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Pending'")->fetchColumn();
+            $approved   = (int) $db->query("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Approved'")->fetchColumn();
+            $rejected   = (int) $db->query("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Rejected'")->fetchColumn();
+            $adminTotal = (int) $db->query("SELECT COUNT(*) FROM admin_manual_attendance")->fetchColumn();
+        }
+
+        return [
+            'pending'     => $pending,
+            'approved'    => $approved,
+            'rejected'    => $rejected,
+            'admin_total' => $adminTotal,
+        ];
+    }
+
+    /** Pending-request count for the dashboard badge. */
+    public function pendingCount(): int
+    {
+        return (int) Database::connection()
+            ->query("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Pending'")
+            ->fetchColumn();
+    }
+
+    /* ════════════════════════════════════════════════════════
+     * Private helpers
      * ════════════════════════════════════════════════════════ */
 
     /**
-     * Check for issues with an employee request.
-     * Returns array of warning strings (non-blocking unless critical).
+     * Extract typed taps from admin form data.
+     * Each field name matches an attendance type; value is a HH:MM time string.
+     * Returns array<canonical_type, "Y-m-d H:i:s"> for non-empty fields only.
      */
-    private function validateRequest(string $employeeId, string $type, string $date, string $time): array
+    private function extractTaps(array $data, string $date): array
+    {
+        $taps = [];
+        foreach (AttendanceEngine::VALID_TYPES as $type) {
+            $val = trim($data[$type] ?? '');
+            if ($val !== '') {
+                $taps[$type] = $date . ' ' . $val . (strlen($val) === 5 ? ':00' : '');
+            }
+        }
+        return $taps;
+    }
+
+    /**
+     * Validate that the provided times follow the expected sequence:
+     * time_in ≤ break_out ≤ break_in ≤ time_out ≤ overtime_in ≤ overtime_out
+     */
+    private function validateTimeOrder(array $taps, string $date): ?string
+    {
+        $seq = [
+            AttendanceEngine::TYPE_TIME_IN,
+            AttendanceEngine::TYPE_BREAK_OUT,
+            AttendanceEngine::TYPE_BREAK_IN,
+            AttendanceEngine::TYPE_TIME_OUT,
+            AttendanceEngine::TYPE_OT_IN,
+            AttendanceEngine::TYPE_OT_OUT,
+        ];
+
+        $labels = AttendanceEngine::LABELS;
+        $prev   = null;
+        $prevLbl = '';
+
+        foreach ($seq as $type) {
+            if (!isset($taps[$type])) {
+                continue;
+            }
+            if ($prev !== null && strtotime($taps[$type]) < strtotime($prev)) {
+                return "{$labels[$type]} must be after {$prevLbl}.";
+            }
+            $prev    = $taps[$type];
+            $prevLbl = $labels[$type];
+        }
+
+        return null;
+    }
+
+    /**
+     * Build non-blocking warnings for admin entries.
+     */
+    private function buildAdminWarnings(string $employeeId, string $date, array $taps): array
     {
         $warnings = [];
-        $db       = Database::connection();
 
-        // Check for existing attendance record of this type
-        $existing = $db->prepare(
+        $stmt = Database::connection()->prepare(
             "SELECT id FROM attendance_summary WHERE employee_id = ? AND attendance_date = ?"
         );
-        $existing->execute([$employeeId, $date]);
-        $summary = $existing->fetch();
-
-        if ($type === 'time_in' && $summary && $summary['time_in'] ?? false) {
-            $warnings[] = 'An existing Time In record already exists for this date.';
-        }
-        if ($type === 'time_out' && $summary && $summary['time_out'] ?? false) {
-            $warnings[] = 'An existing Time Out record already exists for this date.';
+        $stmt->execute([$employeeId, $date]);
+        if ($stmt->fetch()) {
+            $warnings[] = 'An attendance record already exists for this employee on this date. It will be merged.';
         }
 
-        // Check allowed hours warning
         $allowedFrom = $this->cfg->get('allowed_time_in_from', '06:00');
-        $allowedTo   = $this->cfg->get('allowed_time_in_to',   '10:00');
-        if ($type === 'time_in' && $time) {
+        $allowedTo   = $this->cfg->get('allowed_time_in_to',   '22:00');
+
+        if (isset($taps[AttendanceEngine::TYPE_TIME_IN])) {
+            $t = substr($taps[AttendanceEngine::TYPE_TIME_IN], 11, 5);
+            if ($t < $allowedFrom || $t > $allowedTo) {
+                $warnings[] = "Time In ({$t}) is outside the configurable allowed window ({$allowedFrom}–{$allowedTo}).";
+            }
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * Validate an employee self-service request type against existing summary.
+     */
+    private function validateRequestType(string $employeeId, string $type, string $date, string $time): array
+    {
+        $warnings = [];
+        $summary  = $this->engine->getOfficialSummary($employeeId, $date);
+
+        // Warn if the official slot is already filled (multiple taps are allowed;
+        // the engine will pick the correct official value)
+        $filledMap = [
+            AttendanceEngine::TYPE_TIME_IN   => 'time_in',
+            AttendanceEngine::TYPE_BREAK_OUT => 'break_out',
+            AttendanceEngine::TYPE_BREAK_IN  => 'break_in',
+            AttendanceEngine::TYPE_TIME_OUT  => 'time_out',
+            AttendanceEngine::TYPE_OT_IN     => 'overtime_in',
+            AttendanceEngine::TYPE_OT_OUT    => 'overtime_out',
+        ];
+
+        if ($summary && isset($filledMap[$type]) && !empty($summary[$filledMap[$type]])) {
+            $label = AttendanceEngine::LABELS[$type] ?? $type;
+            $warnings[] = "A {$label} record already exists for today. This entry will be processed — the earlier/later value will be used as the official record.";
+        }
+
+        // Time-window warning for time_in only
+        if ($type === AttendanceEngine::TYPE_TIME_IN) {
+            $allowedFrom = $this->cfg->get('allowed_time_in_from', '06:00');
+            $allowedTo   = $this->cfg->get('allowed_time_in_to',   '10:00');
             if ($time < $allowedFrom || $time > $allowedTo) {
                 $warnings[] = "Requested time ({$time}) is outside the normal allowed window ({$allowedFrom}–{$allowedTo}).";
             }
         }
 
         return $warnings;
-    }
-
-    private function validateAdminEntry(string $employeeId, string $date, array $data): array
-    {
-        $warnings = [];
-
-        // Check if attendance already exists for this date
-        $stmt = Database::connection()->prepare(
-            "SELECT id FROM attendance_summary WHERE employee_id = ? AND attendance_date = ?"
-        );
-        $stmt->execute([$employeeId, $date]);
-        if ($stmt->fetch()) {
-            $warnings[] = 'An attendance record already exists for this employee on this date. It will be overwritten.';
-        }
-
-        // Out-of-hours warning
-        $allowedFrom = $this->cfg->get('allowed_time_in_from', '06:00');
-        $allowedTo   = $this->cfg->get('allowed_time_in_to',   '22:00');
-        if (!empty($data['time_in'])) {
-            if ($data['time_in'] < $allowedFrom || $data['time_in'] > $allowedTo) {
-                $warnings[] = "Time In ({$data['time_in']}) is outside the configurable allowed window ({$allowedFrom}–{$allowedTo}). Please verify before saving.";
-            }
-        }
-
-        return $warnings;
-    }
-
-    /* ════════════════════════════════════════════════════════
-     * Internal Helpers
-     * ════════════════════════════════════════════════════════ */
-
-    private function applyApprovedRequest(array $req): void
-    {
-        $employeeId = $req['employee_id'];
-        $date       = $req['request_date'];
-        $time       = $req['requested_time'];
-        $type       = $req['request_type'];
-
-        $datetime = $date . ' ' . $time;
-
-        // Upsert attendance_summary row
-        $stmt = Database::connection()->prepare(
-            "SELECT id, time_in, time_out FROM attendance_summary WHERE employee_id = ? AND attendance_date = ?"
-        );
-        $stmt->execute([$employeeId, $date]);
-        $existing = $stmt->fetch();
-
-        if ($existing) {
-            $col = $type === 'time_in' ? 'time_in' : 'time_out';
-            Database::connection()->prepare(
-                "UPDATE attendance_summary
-                 SET {$col} = ?, day_status = 'present', updated_at = NOW()
-                 WHERE employee_id = ? AND attendance_date = ?"
-            )->execute([$datetime, $employeeId, $date]);
-        } else {
-            $col = $type === 'time_in' ? 'time_in' : 'time_out';
-            Database::connection()->prepare(
-                "INSERT INTO attendance_summary (id, employee_id, attendance_date, {$col}, day_status)
-                 VALUES (?, ?, ?, ?, 'present')"
-            )->execute([uuid_v4(), $employeeId, $date, $datetime]);
-        }
-
-        // Recalculate attendance metrics if both time_in and time_out are present
-        $this->recalculateAttendanceMetrics($employeeId, $date);
-
-        // Insert into raw attendance table
-        Database::connection()->prepare(
-            "INSERT IGNORE INTO attendance
-             (id, employee_id, attendance_date, time_recorded, attendance_type, method, recorded_by)
-             VALUES (?, ?, ?, ?, ?, 'manual', ?)"
-        )->execute([
-            uuid_v4(), $employeeId, $date, $datetime,
-            $type === 'time_in' ? 'time_in' : 'time_out',
-            current_user()['id'] ?? null,
-        ]);
-    }
-
-    private function syncSummary(
-        string  $employeeId,
-        string  $date,
-        ?string $timeIn,
-        ?string $timeOut,
-        string  $status
-    ): void {
-        $stmt = Database::connection()->prepare(
-            "SELECT id FROM attendance_summary WHERE employee_id = ? AND attendance_date = ?"
-        );
-        $stmt->execute([$employeeId, $date]);
-        $existing = $stmt->fetch();
-
-        if ($existing) {
-            Database::connection()->prepare(
-                "UPDATE attendance_summary
-                 SET time_in = ?, time_out = ?, day_status = ?, updated_at = NOW()
-                 WHERE id = ?"
-            )->execute([$timeIn, $timeOut, $status, $existing['id']]);
-        } else {
-            Database::connection()->prepare(
-                "INSERT INTO attendance_summary (id, employee_id, attendance_date, time_in, time_out, day_status)
-                 VALUES (?, ?, ?, ?, ?, ?)"
-            )->execute([uuid_v4(), $employeeId, $date, $timeIn, $timeOut, $status]);
-        }
-
-        // Recalculate metrics after sync
-        if ($timeIn && $timeOut) {
-            $this->recalculateAttendanceMetrics($employeeId, $date);
-        }
-    }
-
-    /**
-     * Recalculate attendance metrics (late, undertime, total hours) based on shift
-     */
-    private function recalculateAttendanceMetrics(string $employeeId, string $date): void
-    {
-        $db = Database::connection();
-
-        // Get current attendance summary
-        $stmt = $db->prepare(
-            "SELECT time_in, time_out FROM attendance_summary WHERE employee_id = ? AND attendance_date = ?"
-        );
-        $stmt->execute([$employeeId, $date]);
-        $summary = $stmt->fetch();
-
-        if (!$summary || !$summary['time_in'] || !$summary['time_out']) {
-            return; // Cannot calculate without both times
-        }
-
-        // Get employee's shift information
-        $stmt = $db->prepare(
-            "SELECT s.time_in, s.time_out, s.grace_period_minutes, s.required_hours, s.lunch_break_minutes
-             FROM shifts s
-             INNER JOIN employees e ON e.shift_id = s.id
-             WHERE e.id = ?"
-        );
-        $stmt->execute([$employeeId]);
-        $shift = $stmt->fetch();
-
-        if (!$shift) {
-            return; // No shift assigned, cannot calculate
-        }
-
-        $timeIn = strtotime($summary['time_in']);
-        $timeOut = strtotime($summary['time_out']);
-        $shiftTimeIn = strtotime($date . ' ' . $shift['time_in']);
-        $shiftTimeOut = strtotime($date . ' ' . $shift['time_out']);
-
-        // Calculate total hours worked (excluding lunch break if applicable)
-        $totalSeconds = $timeOut - $timeIn;
-        $lunchMinutes = (int) $shift['lunch_break_minutes'];
-        if ($lunchMinutes > 0 && $totalSeconds > ($lunchMinutes * 60)) {
-            $totalSeconds -= ($lunchMinutes * 60);
-        }
-        $totalHours = round($totalSeconds / 3600, 2);
-
-        // Calculate late minutes
-        $lateMinutes = 0;
-        $gracePeriod = (int) $shift['grace_period_minutes'];
-        if ($timeIn > $shiftTimeIn) {
-            $lateSeconds = $timeIn - $shiftTimeIn;
-            $lateMinutes = (int) round($lateSeconds / 60);
-            // Subtract grace period
-            if ($lateMinutes > $gracePeriod) {
-                $lateMinutes -= $gracePeriod;
-            } else {
-                $lateMinutes = 0;
-            }
-        }
-
-        // Calculate undertime minutes
-        $undertimeMinutes = 0;
-        $requiredHours = (float) $shift['required_hours'];
-        if ($totalHours < $requiredHours) {
-            $undertimeMinutes = (int) round(($requiredHours - $totalHours) * 60);
-        }
-
-        // Update attendance summary with calculated metrics
-        $isLate = $lateMinutes > 0 ? 1 : 0;
-        $stmt = $db->prepare(
-            "UPDATE attendance_summary
-             SET total_hours = ?, late_minutes = ?, undertime_minutes = ?, is_late = ?
-             WHERE employee_id = ? AND attendance_date = ?"
-        );
-        $stmt->execute([$totalHours, $lateMinutes, $undertimeMinutes, $isLate, $employeeId, $date]);
     }
 
     private function getRequest(string $id): ?array
@@ -599,13 +782,5 @@ final class ManualAttendanceService
         );
         $stmt->execute([$employeeId]);
         return (string) ($stmt->fetchColumn() ?: 'Employee');
-    }
-
-    /* ── Pending counts for dashboard ───────────────────────── */
-    public function pendingCount(): int
-    {
-        return (int) Database::connection()
-            ->query("SELECT COUNT(*) FROM manual_attendance_requests WHERE status = 'Pending'")
-            ->fetchColumn();
     }
 }
