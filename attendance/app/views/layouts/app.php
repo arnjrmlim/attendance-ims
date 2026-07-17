@@ -29,10 +29,14 @@ $flashError = flash('error');
         </button>
         <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="<?= url('attendance-monitoring') ?>"><i class="bi bi-clock-history"></i> Monitoring</a></li>
+                <?php if (has_role(['administrator', 'hr'])): ?>
+                    <li class="nav-item"><a class="nav-link" href="<?= url('attendance-monitoring') ?>"><i class="bi bi-clock-history"></i> Monitoring</a></li>
+                <?php endif; ?>
                 <li class="nav-item"><a class="nav-link" href="<?= url('leaves') ?>"><i class="bi bi-calendar2-check"></i> Leaves</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= url('corrections') ?>"><i class="bi bi-pencil-square"></i> Corrections</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?= url('reports') ?>"><i class="bi bi-file-earmark-bar-graph"></i> Reports</a></li>
+                <?php if (has_role(['administrator', 'hr'])): ?>
+                    <li class="nav-item"><a class="nav-link" href="<?= url('reports') ?>"><i class="bi bi-file-earmark-bar-graph"></i> Reports</a></li>
+                <?php endif; ?>
                 <li class="nav-item"><a class="nav-link" href="<?= url('calendar') ?>"><i class="bi bi-calendar3"></i> Calendar</a></li>
                 <?php if (!has_role('administrator')): ?>
                     <li class="nav-item"><a class="nav-link" href="<?= url('manual-attendance/request') ?>"><i class="bi bi-clock"></i> Manual Attendance</a></li>
@@ -42,7 +46,6 @@ $flashError = flash('error');
                     <li class="nav-item"><a class="nav-link" href="<?= url('employees') ?>"><i class="bi bi-people"></i> Employees</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= url('holidays') ?>"><i class="bi bi-sun"></i> Holidays</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= url('audit') ?>"><i class="bi bi-shield-check"></i> Audit</a></li>
-                    <li class="nav-item"><a class="nav-link" href="<?= url('manual-attendance') ?>"><i class="bi bi-check2-square"></i> Approvals</a></li>
                 <?php endif; ?>
                 <?php if (has_role('administrator')): ?>
                 <li class="nav-item dropdown">

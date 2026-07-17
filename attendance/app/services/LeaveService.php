@@ -24,30 +24,50 @@ final class LeaveService
 
     public function list(array $filters, bool $ownOnly = false, ?string $employeeId = null): array
     {
-        $where = [];
+        $where  = [];
         $params = [];
+
+        // Server-side scope: if restricted to own records, enforce it unconditionally
         if ($ownOnly && $employeeId) {
-            $where[] = 'lr.employee_id = :employee_id';
+            $where[]  = 'lr.employee_id = :employee_id';
             $params['employee_id'] = $employeeId;
         }
+
         if (!empty($filters['status'])) {
-            $where[] = 'lr.status = :status';
+            $where[]  = 'lr.status = :status';
             $params['status'] = $filters['status'];
         }
         if (!empty($filters['leave_type'])) {
-            $where[] = 'lr.leave_type = :leave_type';
+            $where[]  = 'lr.leave_type = :leave_type';
             $params['leave_type'] = $filters['leave_type'];
         }
+        // Employee-scoped search only searches within own records (name/number ignored)
         if (!empty($filters['q'])) {
-            $where[] = "(e.employee_number LIKE :q OR e.first_name LIKE :q OR e.last_name LIKE :q OR lr.reason LIKE :q)";
+            if ($ownOnly) {
+                $where[]  = 'lr.reason LIKE :q';
+            } else {
+                $where[]  = "(e.employee_number LIKE :q OR e.first_name LIKE :q OR e.last_name LIKE :q OR lr.reason LIKE :q)";
+            }
             $params['q'] = '%' . $filters['q'] . '%';
         }
+        // Date range filters
+        if (!empty($filters['start_date'])) {
+            $where[]  = 'lr.start_date >= :start_date';
+            $params['start_date'] = $filters['start_date'];
+        }
+        if (!empty($filters['end_date'])) {
+            $where[]  = 'lr.end_date <= :end_date';
+            $params['end_date'] = $filters['end_date'];
+        }
+
         $sql = 'SELECT lr.*, e.employee_number, CONCAT(e.first_name, " ", e.last_name) AS employee_name
-                FROM leave_requests lr INNER JOIN employees e ON e.id = lr.employee_id';
+                FROM leave_requests lr
+                INNER JOIN employees e ON e.id = lr.employee_id';
         if ($where) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
         $sql .= ' ORDER BY lr.created_at DESC';
+
         $stmt = Database::connection()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
@@ -106,7 +126,21 @@ final class LeaveService
 
     public function cancel(string $id): void
     {
-        $before = $this->find($id);
+        $record = $this->find($id);
+        if (!$record) {
+            throw new InvalidArgumentException('Leave request not found.');
+        }
+
+        // Non-admin/hr users can only cancel their own requests
+        $user = current_user();
+        if (!in_array($user['role_slug'] ?? '', ['administrator', 'hr'], true)) {
+            $ownEmployeeId = $user['employee_id'] ?? null;
+            if ($ownEmployeeId !== $record['employee_id']) {
+                throw new InvalidArgumentException('You are not authorised to cancel this leave request.');
+            }
+        }
+
+        $before = $record;
         $stmt = Database::connection()->prepare("UPDATE leave_requests SET status = 'Cancelled' WHERE id = ? AND status = 'Pending'");
         $stmt->execute([$id]);
         (new AuditService())->log('LEAVE_CANCELLED', 'leaves', $id, $before, $this->find($id));

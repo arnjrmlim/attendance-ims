@@ -16,16 +16,10 @@
  *   POST /manual-attendance/api/update        — admin update entry
  *   POST /manual-attendance/api/delete        — admin delete entry
  *   POST /manual-attendance/api/request       — employee submit request
- *   POST /manual-attendance/api/approve       — approve single request
- *   POST /manual-attendance/api/reject        — reject single request
- *   POST /manual-attendance/api/bulk-action   — bulk approve / reject
  *
  * Legacy HTML-POST routes kept for non-JS fallback:
  *   POST /manual-attendance/create       — admin store (redirects)
  *   POST /manual-attendance/request      — employee submit (redirects)
- *   POST /manual-attendance/approve      — approve (redirects)
- *   POST /manual-attendance/reject       — reject (redirects)
- *   POST /manual-attendance/bulk-action  — bulk (redirects)
  */
 
 declare(strict_types=1);
@@ -199,58 +193,6 @@ final class ManualAttendanceController extends BaseController
         } catch (\Throwable $e) { $this->jsonError($e->getMessage()); }
     }
 
-    /** POST /manual-attendance/api/approve */
-    public function apiApprove(): void
-    {
-        require_role(['administrator', 'hr']);
-        $this->verifyAjaxCsrf();
-        $id      = trim($_POST['id'] ?? '');
-        $remarks = trim($_POST['admin_remarks'] ?? '');
-        try {
-            $result = $this->svc->approve($id, current_user()['id'], $remarks);
-            if (!$result['success']) { $this->jsonError($result['error']); }
-            $this->jsonOk(['message' => 'Request approved and attendance updated.']);
-        } catch (\Throwable $e) { $this->jsonError($e->getMessage()); }
-    }
-
-    /** POST /manual-attendance/api/reject */
-    public function apiReject(): void
-    {
-        require_role(['administrator', 'hr']);
-        $this->verifyAjaxCsrf();
-        $id      = trim($_POST['id'] ?? '');
-        $remarks = trim($_POST['admin_remarks'] ?? '');
-        if ($remarks === '') { $this->jsonError('A reason for rejection is required.'); }
-        try {
-            $result = $this->svc->reject($id, current_user()['id'], $remarks);
-            if (!$result['success']) { $this->jsonError($result['error']); }
-            $this->jsonOk(['message' => 'Request rejected.']);
-        } catch (\Throwable $e) { $this->jsonError($e->getMessage()); }
-    }
-
-    /** POST /manual-attendance/api/bulk-action */
-    public function apiBulkAction(): void
-    {
-        require_role(['administrator', 'hr']);
-        $this->verifyAjaxCsrf();
-        $ids     = array_filter(array_map('trim', (array) ($_POST['ids'] ?? [])));
-        $action  = $_POST['action'] ?? '';
-        $remarks = trim($_POST['admin_remarks'] ?? '');
-        if (empty($ids))                                           { $this->jsonError('No records selected.'); }
-        if (!in_array($action, ['approve', 'reject'], true))       { $this->jsonError('Invalid action.'); }
-        if ($action === 'reject' && $remarks === '')                { $this->jsonError('A reason for rejection is required.'); }
-        try {
-            $result = $this->svc->bulkAction($ids, $action, current_user()['id'], $remarks);
-            $label  = $action === 'approve' ? 'approved' : 'rejected';
-            $this->jsonOk([
-                'approved' => $result['approved'],
-                'rejected' => $result['rejected'],
-                'errors'   => $result['errors'],
-                'message'  => "{$result[$label]} request(s) {$label}."
-                            . ($result['errors'] > 0 ? " {$result['errors']} error(s)." : ''),
-            ]);
-        } catch (\Throwable $e) { $this->jsonError($e->getMessage()); }
-    }
 
     /* ════════════════════════════════════════════════════════════
      * Legacy HTML-POST fallbacks (redirect-based, non-JS)
@@ -300,54 +242,6 @@ final class ManualAttendanceController extends BaseController
         redirect('manual-attendance');
     }
 
-    public function approve(): void
-    {
-        require_role(['administrator', 'hr']);
-        verify_csrf();
-
-        $result = $this->svc->approve(
-            trim($_POST['id'] ?? ''),
-            current_user()['id'],
-            trim($_POST['admin_remarks'] ?? '')
-        );
-        flash($result['success'] ? 'success' : 'error',
-              $result['success'] ? 'Request approved and attendance updated.' : $result['error']);
-        redirect('manual-attendance');
-    }
-
-    public function reject(): void
-    {
-        require_role(['administrator', 'hr']);
-        verify_csrf();
-
-        $result = $this->svc->reject(
-            trim($_POST['id'] ?? ''),
-            current_user()['id'],
-            trim($_POST['admin_remarks'] ?? '')
-        );
-        flash($result['success'] ? 'success' : 'error',
-              $result['success'] ? 'Request rejected.' : $result['error']);
-        redirect('manual-attendance');
-    }
-
-    public function bulkAction(): void
-    {
-        require_role(['administrator', 'hr']);
-        verify_csrf();
-
-        $ids    = (array) ($_POST['ids'] ?? []);
-        $action = $_POST['action'] ?? '';
-        if (empty($ids) || !in_array($action, ['approve', 'reject'], true)) {
-            flash('error', 'Invalid bulk action.');
-            redirect('manual-attendance');
-        }
-
-        $result = $this->svc->bulkAction($ids, $action, current_user()['id'], trim($_POST['admin_remarks'] ?? ''));
-        $label  = $action === 'approve' ? 'approved' : 'rejected';
-        flash('success', "{$result[$label]} request(s) {$label}."
-            . ($result['errors'] > 0 ? " {$result['errors']} error(s)." : ''));
-        redirect('manual-attendance');
-    }
 
     /* ════════════════════════════════════════════════════════════
      * Private helpers

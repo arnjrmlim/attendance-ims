@@ -121,8 +121,25 @@ if (!function_exists('require_role')) {
     {
         require_login();
         if (!has_role($roles)) {
+            // Log unauthorized access attempt
+            $user = current_user();
+            if ($user) {
+                try {
+                    $auditService = new \App\Services\AuditService();
+                    $auditService->log('UNAUTHORIZED_ACCESS', 'security', null, null, [
+                        'required_roles' => is_array($roles) ? implode(', ', $roles) : $roles,
+                        'user_role' => $user['role_slug'] ?? 'unknown',
+                        'requested_url' => $_SERVER['REQUEST_URI'] ?? 'unknown',
+                        'request_method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown'
+                    ]);
+                } catch (\Throwable $e) {
+                    // Log error but don't prevent the 403 response
+                    error_log('Failed to log unauthorized access: ' . $e->getMessage());
+                }
+            }
+            
             http_response_code(403);
-            exit('Forbidden');
+            exit('You do not have permission to access this page.');
         }
     }
 }

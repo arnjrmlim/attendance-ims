@@ -9,14 +9,6 @@
     <div class="row g-3 mb-4">
         <div class="col-sm-6 col-lg-3"><div class="metric-card"><div class="text-muted">Pending Leave</div><div class="metric-value"><?= (int) $stats['pending_leaves'] ?></div></div></div>
         <div class="col-sm-6 col-lg-3"><div class="metric-card"><div class="text-muted">Pending Corrections</div><div class="metric-value"><?= (int) $stats['pending_corrections'] ?></div></div></div>
-        <div class="col-sm-6 col-lg-3">
-            <a href="<?= url('manual-attendance') ?>" class="text-decoration-none">
-                <div class="metric-card">
-                    <div class="text-muted">Pending Manual Attendance</div>
-                    <div class="metric-value"><?= (int) ($stats['pending_manual_requests'] ?? 0) ?></div>
-                </div>
-            </a>
-        </div>
         <div class="col-sm-6 col-lg-3"><div class="metric-card"><div class="text-muted">Leave Balance</div><div class="fw-semibold"><?= e($stats['leave_balance']) ?></div></div></div>
     </div>
 <?php else: ?>
@@ -30,14 +22,6 @@
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-3">
-            <a href="<?= url('manual-attendance') ?>" class="text-decoration-none">
-                <div class="metric-card">
-                    <div class="text-muted"><i class="bi bi-clock-history"></i> Pending Manual Attendance</div>
-                    <div class="metric-value"><?= (int) ($stats['pending_manual'] ?? 0) ?></div>
-                </div>
-            </a>
-        </div>
         <div class="col-sm-6 col-lg-3">
             <a href="<?= url('email-logs') ?>" class="text-decoration-none">
                 <div class="metric-card">

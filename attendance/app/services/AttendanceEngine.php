@@ -154,6 +154,23 @@ final class AttendanceEngine
         ?string $ipAddress   = null
     ): string {
         $type = $this->canonicalType($type);
+        
+        // Check if employee has approved leave for this date
+        $stmt = Database::connection()->prepare(
+            "SELECT id, leave_type FROM leave_requests 
+             WHERE employee_id = ? 
+             AND status = 'Approved' 
+             AND ? BETWEEN start_date AND end_date"
+        );
+        $stmt->execute([$employeeId, $date]);
+        $leave = $stmt->fetch();
+        
+        if ($leave) {
+            throw new \InvalidArgumentException(
+                "You already have an approved {$leave['leave_type']} for {$date}. Attendance cannot be recorded for dates covered by approved leave."
+            );
+        }
+        
         $id   = uuid_v4();
 
         Database::connection()->prepare(

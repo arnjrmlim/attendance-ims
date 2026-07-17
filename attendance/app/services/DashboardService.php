@@ -71,9 +71,35 @@ final class DashboardService
         $recentHires = (int) $db->query("SELECT COUNT(*) FROM employees WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")->fetchColumn();
         
         $employees  = $activeEmployees;
-        $present    = (int) $db->query("SELECT COUNT(DISTINCT employee_id) FROM attendance_summary WHERE attendance_date = CURDATE() AND day_status = 'present'")->fetchColumn();
-        $late       = (int) $db->query("SELECT COUNT(*) FROM attendance_summary WHERE attendance_date = CURDATE() AND is_late = 1")->fetchColumn();
-        $onLeave    = (int) $db->query("SELECT COUNT(*) FROM leave_requests WHERE status = 'Approved' AND CURDATE() BETWEEN start_date AND end_date")->fetchColumn();
+        
+        // Use the same logic as AttendanceService::monitor() - count only employees with attendance OR approved leave
+        $todayStats = $db->query(
+            "SELECT 
+                COUNT(CASE WHEN lr.status = 'Approved' THEN 1 END) AS on_leave,
+                COUNT(CASE WHEN s.day_status = 'present' THEN 1 END) AS present,
+                COUNT(CASE WHEN s.is_late = 1 THEN 1 END) AS late
+             FROM (
+                -- Employees with attendance records today
+                SELECT DISTINCT employee_id
+                FROM attendance_summary
+                WHERE attendance_date = CURDATE()
+                UNION
+                -- Employees with approved leave covering today
+                SELECT DISTINCT employee_id
+                FROM leave_requests
+                WHERE status = 'Approved'
+                AND CURDATE() BETWEEN start_date AND end_date
+            ) AS relevant_employees
+            LEFT JOIN attendance_summary s ON s.employee_id = relevant_employees.employee_id 
+                AND s.attendance_date = CURDATE()
+            LEFT JOIN leave_requests lr ON lr.employee_id = relevant_employees.employee_id 
+                AND lr.status = 'Approved' 
+                AND CURDATE() BETWEEN lr.start_date AND lr.end_date"
+        )->fetch();
+        
+        $present = (int) $todayStats['present'];
+        $late = (int) $todayStats['late'];
+        $onLeave = (int) $todayStats['on_leave'];
 
         $pendingCorrections = (int) $db->query("SELECT COUNT(*) FROM attendance_corrections WHERE status = 'Pending'")->fetchColumn();
         $pendingLeaves      = (int) $db->query("SELECT COUNT(*) FROM leave_requests WHERE status = 'Pending'")->fetchColumn();
