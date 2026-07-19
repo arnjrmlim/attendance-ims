@@ -70,17 +70,10 @@
         <?php /* Profile card */ ?>
         <div class="panel p-3 text-center mb-3">
             <div class="mb-3">
-                <?php if (!empty($employee['photo'])): ?>
-                    <img src="<?= url('uploads/' . e($employee['photo'])) ?>"
-                         alt="<?= e($employee['full_name']) ?>"
-                         class="rounded-circle border"
-                         style="width:150px;height:150px;object-fit:cover;">
-                <?php else: ?>
-                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto"
-                         style="width:150px;height:150px;">
-                        <i class="bi bi-person text-white" style="font-size:4rem;"></i>
-                    </div>
-                <?php endif; ?>
+                <img src="<?= profile_picture_url($employee) ?>"
+                     alt="<?= e($employee['full_name']) ?>"
+                     class="rounded-circle border"
+                     style="width:150px;height:150px;object-fit:cover;">
             </div>
 
             <h4 class="mb-1"><?= e($employee['full_name']) ?></h4>

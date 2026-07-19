@@ -15,7 +15,7 @@
     </div>
 <?php endif; ?>
 
-<form method="post" action="<?= url('employees/update') ?>" enctype="multipart/form-data" class="row g-3">
+<form method="post" action="<?= url('employees/update') ?>" class="row g-3">
     <?= csrf_field() ?>
     <input type="hidden" name="id" value="<?= e($employee['id']) ?>">
 
@@ -24,78 +24,60 @@
         <div class="panel p-3">
             <h5 class="mb-3"><i class="bi bi-person"></i> Personal Information</h5>
             <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">Profile Photo</label>
-                    <div class="text-center">
-                        <div id="photoPreview" class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 120px; height: 120px;">
-                            <?php if ($employee['photo']): ?>
-                                <img src="<?= url('uploads/' . $employee['photo']) ?>" alt="Current photo" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
-                            <?php else: ?>
-                                <i class="bi bi-person text-white fs-1"></i>
-                            <?php endif; ?>
-                        </div>
-                        <input type="file" class="form-control form-control-sm" name="photo" accept="image/jpeg,image/jpg,image/png" id="photoInput">
-                        <small class="text-muted">JPG or PNG, max 2MB</small>
-                    </div>
+                <div class="col-md-4">
+                    <label class="form-label">Employee Number <span class="text-danger">*</span></label>
+                    <input class="form-control" name="employee_number" value="<?= e($employee['employee_number']) ?>" required>
                 </div>
-                <div class="col-md-9">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Employee Number <span class="text-danger">*</span></label>
-                            <input class="form-control" name="employee_number" value="<?= e($employee['employee_number']) ?>" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">First Name <span class="text-danger">*</span></label>
-                            <input class="form-control" name="first_name" value="<?= e($employee['first_name']) ?>" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Middle Name</label>
-                            <input class="form-control" name="middle_name" value="<?= e($employee['middle_name'] ?? '') ?>">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
-                            <input class="form-control" name="last_name" value="<?= e($employee['last_name']) ?>" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Suffix</label>
-                            <select class="form-select" name="suffix">
-                                <option value="">None</option>
-                                <option value="Jr." <?= ($employee['suffix'] ?? '') === 'Jr.' ? 'selected' : '' ?>>Jr.</option>
-                                <option value="Sr." <?= ($employee['suffix'] ?? '') === 'Sr.' ? 'selected' : '' ?>>Sr.</option>
-                                <option value="II" <?= ($employee['suffix'] ?? '') === 'II' ? 'selected' : '' ?>>II</option>
-                                <option value="III" <?= ($employee['suffix'] ?? '') === 'III' ? 'selected' : '' ?>>III</option>
-                                <option value="IV" <?= ($employee['suffix'] ?? '') === 'IV' ? 'selected' : '' ?>>IV</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Gender</label>
-                            <select class="form-select" name="gender">
-                                <option value="">Select</option>
-                                <option value="Male" <?= ($employee['gender'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
-                                <option value="Female" <?= ($employee['gender'] ?? '') === 'Female' ? 'selected' : '' ?>>Female</option>
-                                <option value="Other" <?= ($employee['gender'] ?? '') === 'Other' ? 'selected' : '' ?>>Other</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Date of Birth</label>
-                            <input class="form-control" type="date" name="date_of_birth" value="<?= e($employee['date_of_birth'] ?? '') ?>">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Civil Status</label>
-                            <select class="form-select" name="civil_status">
-                                <option value="">Select</option>
-                                <option value="Single" <?= ($employee['civil_status'] ?? '') === 'Single' ? 'selected' : '' ?>>Single</option>
-                                <option value="Married" <?= ($employee['civil_status'] ?? '') === 'Married' ? 'selected' : '' ?>>Married</option>
-                                <option value="Widowed" <?= ($employee['civil_status'] ?? '') === 'Widowed' ? 'selected' : '' ?>>Widowed</option>
-                                <option value="Separated" <?= ($employee['civil_status'] ?? '') === 'Separated' ? 'selected' : '' ?>>Separated</option>
-                                <option value="Divorced" <?= ($employee['civil_status'] ?? '') === 'Divorced' ? 'selected' : '' ?>>Divorced</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Nationality</label>
-                            <input class="form-control" name="nationality" value="<?= e($employee['nationality'] ?? '') ?>">
-                        </div>
-                    </div>
+                <div class="col-md-4">
+                    <label class="form-label">First Name <span class="text-danger">*</span></label>
+                    <input class="form-control" name="first_name" value="<?= e($employee['first_name']) ?>" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Middle Name</label>
+                    <input class="form-control" name="middle_name" value="<?= e($employee['middle_name'] ?? '') ?>">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                    <input class="form-control" name="last_name" value="<?= e($employee['last_name']) ?>" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Suffix</label>
+                    <select class="form-select" name="suffix">
+                        <option value="">None</option>
+                        <option value="Jr." <?= ($employee['suffix'] ?? '') === 'Jr.' ? 'selected' : '' ?>>Jr.</option>
+                        <option value="Sr." <?= ($employee['suffix'] ?? '') === 'Sr.' ? 'selected' : '' ?>>Sr.</option>
+                        <option value="II" <?= ($employee['suffix'] ?? '') === 'II' ? 'selected' : '' ?>>II</option>
+                        <option value="III" <?= ($employee['suffix'] ?? '') === 'III' ? 'selected' : '' ?>>III</option>
+                        <option value="IV" <?= ($employee['suffix'] ?? '') === 'IV' ? 'selected' : '' ?>>IV</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Gender</label>
+                    <select class="form-select" name="gender">
+                        <option value="">Select</option>
+                        <option value="Male" <?= ($employee['gender'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
+                        <option value="Female" <?= ($employee['gender'] ?? '') === 'Female' ? 'selected' : '' ?>>Female</option>
+                        <option value="Other" <?= ($employee['gender'] ?? '') === 'Other' ? 'selected' : '' ?>>Other</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date of Birth</label>
+                    <input class="form-control" type="date" name="date_of_birth" value="<?= e($employee['date_of_birth'] ?? '') ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Civil Status</label>
+                    <select class="form-select" name="civil_status">
+                        <option value="">Select</option>
+                        <option value="Single" <?= ($employee['civil_status'] ?? '') === 'Single' ? 'selected' : '' ?>>Single</option>
+                        <option value="Married" <?= ($employee['civil_status'] ?? '') === 'Married' ? 'selected' : '' ?>>Married</option>
+                        <option value="Widowed" <?= ($employee['civil_status'] ?? '') === 'Widowed' ? 'selected' : '' ?>>Widowed</option>
+                        <option value="Separated" <?= ($employee['civil_status'] ?? '') === 'Separated' ? 'selected' : '' ?>>Separated</option>
+                        <option value="Divorced" <?= ($employee['civil_status'] ?? '') === 'Divorced' ? 'selected' : '' ?>>Divorced</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nationality</label>
+                    <input class="form-control" name="nationality" value="<?= e($employee['nationality'] ?? '') ?>">
                 </div>
             </div>
         </div>
@@ -294,27 +276,3 @@
     </div>
 </form>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Photo preview
-    const photoInput = document.getElementById('photoInput');
-    const photoPreview = document.getElementById('photoPreview');
-    
-    photoInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                alert('Photo must not exceed 2MB.');
-                photoInput.value = '';
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                photoPreview.innerHTML = `<img src="${e.target.result}" alt="Preview" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">`;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-});
-</script>

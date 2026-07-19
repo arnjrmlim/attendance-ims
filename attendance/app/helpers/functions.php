@@ -202,3 +202,33 @@ if (!function_exists('date_range_label')) {
         return trim(($start ?: 'Beginning') . ' to ' . ($end ?: 'Today'));
     }
 }
+
+/**
+ * Returns the absolute URL for a user's profile picture.
+ *
+ * Always reads from users.profile_picture (stored as a relative path under
+ * uploads/avatars/).  If the user has no picture, or if $user is null, returns
+ * the URL for the default avatar asset.
+ *
+ * Usage:
+ *   <img src="<?= profile_picture_url(current_user()) ?>" …>
+ *   <img src="<?= profile_picture_url($row) ?>" …>   // $row must have 'profile_picture' key
+ *
+ * @param  array|null $user  Any array that contains a 'profile_picture' key.
+ * @return string            Absolute URL safe to embed in src="…".
+ */
+if (!function_exists('profile_picture_url')) {
+    function profile_picture_url(?array $user): string
+    {
+        $path = $user['profile_picture'] ?? null;
+
+        if (!empty($path)) {
+            // Normalise separators and strip any leading slash
+            $path = ltrim(str_replace('\\', '/', $path), '/');
+            return url('uploads/' . e($path));
+        }
+
+        // Default avatar — a simple SVG data-URI so no file dependency is needed
+        return url('assets/img/default-avatar.svg');
+    }
+}

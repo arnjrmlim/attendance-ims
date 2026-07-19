@@ -76,17 +76,25 @@ final class ProfileController extends BaseController
     // Upload / replace profile picture
     // ----------------------------------------------------------------
 
+    /**
+     * POST /profile/picture
+     *
+     * Only the authenticated user may upload their own avatar.
+     * HR and Administrators cannot reach this endpoint on behalf of
+     * someone else — the controller always operates on current_user().
+     */
     public function uploadPicture(): void
     {
         require_login();
         verify_csrf();
 
+        // Ownership is implicit: we always operate on the session user.
         $user = current_user();
 
         try {
             $path = $this->service->uploadProfilePicture($user['id']);
 
-            // Keep the session avatar in sync
+            // Keep the in-session avatar in sync so the navbar updates immediately
             $_SESSION['user']['profile_picture'] = $path;
 
             flash('success', 'Profile picture updated successfully.');
@@ -101,6 +109,11 @@ final class ProfileController extends BaseController
     // Remove profile picture
     // ----------------------------------------------------------------
 
+    /**
+     * POST /profile/picture/remove
+     *
+     * Only the authenticated user may remove their own avatar.
+     */
     public function removePicture(): void
     {
         require_login();
@@ -111,7 +124,7 @@ final class ProfileController extends BaseController
         try {
             $this->service->removeProfilePicture($user['id']);
 
-            // Clear avatar from session
+            // Clear avatar from session — default will show on next render
             $_SESSION['user']['profile_picture'] = null;
 
             flash('success', 'Profile picture removed.');

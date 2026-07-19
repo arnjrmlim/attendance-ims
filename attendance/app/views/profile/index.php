@@ -2,11 +2,10 @@
 /**
  * My Profile – Profile Settings Page
  * Route: GET /profile
+ *
+ * Profile picture is read exclusively from users.profile_picture.
+ * The helper profile_picture_url() handles the URL and default fallback.
  */
-
-// Resolve display avatar: prefer user's profile_picture, fall back to employee photo
-$displayAvatar = $profile['profile_picture']
-    ?? (($profile['employee_photo'] ?? null) ? $profile['employee_photo'] : null);
 ?>
 
 <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
@@ -18,25 +17,17 @@ $displayAvatar = $profile['profile_picture']
 
 <div class="row g-3">
 
-    <?php /* ── Left: avatar + read-only summary ──────────────────────────── */ ?>
+    <?php /* ── Left: avatar card + read-only summary ──────────────────── */ ?>
     <div class="col-lg-4">
 
-        <?php /* Profile Picture Card */ ?>
+        <?php /* ── Profile Picture Card ──────────────────────────────── */ ?>
         <div class="panel p-3 text-center mb-3">
             <div class="mb-3">
-                <?php if ($displayAvatar): ?>
-                    <img src="<?= url('uploads/' . e($displayAvatar)) ?>"
-                         alt="Profile Picture"
-                         id="avatarPreview"
-                         class="rounded-circle border"
-                         style="width:150px;height:150px;object-fit:cover;">
-                <?php else: ?>
-                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto"
-                         id="avatarPreview"
-                         style="width:150px;height:150px;">
-                        <i class="bi bi-person text-white" style="font-size:4rem;"></i>
-                    </div>
-                <?php endif; ?>
+                <img src="<?= profile_picture_url($profile) ?>"
+                     alt="Profile Picture"
+                     id="avatarPreview"
+                     class="rounded-circle border"
+                     style="width:150px;height:150px;object-fit:cover;">
             </div>
 
             <h5 class="mb-0"><?= e($profile['full_name'] ?? $profile['username']) ?></h5>
@@ -45,14 +36,15 @@ $displayAvatar = $profile['profile_picture']
                 <div class="text-muted small mb-3"><?= e($profile['position']) ?></div>
             <?php endif; ?>
 
-            <?php /* Upload form */ ?>
+            <?php /* Upload / Replace form — authenticated owner only */ ?>
             <form method="post"
                   action="<?= url('profile/picture') ?>"
                   enctype="multipart/form-data"
                   id="pictureUploadForm">
                 <?= csrf_field() ?>
                 <label for="profilePictureInput" class="btn btn-outline-primary btn-sm w-100 mb-2">
-                    <i class="bi bi-camera"></i> <?= $displayAvatar ? 'Replace Picture' : 'Upload Picture' ?>
+                    <i class="bi bi-camera"></i>
+                    <?= !empty($profile['profile_picture']) ? 'Replace Picture' : 'Upload Picture' ?>
                 </label>
                 <input type="file"
                        id="profilePictureInput"
@@ -62,7 +54,7 @@ $displayAvatar = $profile['profile_picture']
                        onchange="previewAndSubmit(this)">
             </form>
 
-            <?php /* Remove button – only show if picture exists */ ?>
+            <?php /* Remove button — only shown when a picture is stored */ ?>
             <?php if (!empty($profile['profile_picture'])): ?>
                 <form method="post" action="<?= url('profile/picture/remove') ?>">
                     <?= csrf_field() ?>
@@ -75,19 +67,28 @@ $displayAvatar = $profile['profile_picture']
             <?php endif; ?>
 
             <div class="mt-2 text-muted" style="font-size:.75rem;">
-                Accepted: JPG, PNG, WEBP &bull; Max 2 MB
+                Accepted: JPG, PNG, WEBP &bull; Max 5 MB
             </div>
         </div>
 
-        <?php /* Quick-info card */ ?>
+        <?php /* ── Account Summary card ──────────────────────────────── */ ?>
         <div class="panel p-3">
             <h6 class="mb-3"><i class="bi bi-info-circle"></i> Account Summary</h6>
             <dl class="row row-cols-1 g-2 mb-0">
                 <?php if (!empty($profile['employee_number'])): ?>
-                    <div class="col"><dt class="small text-muted">Employee No.</dt><dd><?= e($profile['employee_number']) ?></dd></div>
+                    <div class="col">
+                        <dt class="small text-muted">Employee No.</dt>
+                        <dd><?= e($profile['employee_number']) ?></dd>
+                    </div>
                 <?php endif; ?>
-                <div class="col"><dt class="small text-muted">Username</dt><dd><?= e($profile['username']) ?></dd></div>
-                <div class="col"><dt class="small text-muted">Role</dt><dd><?= e($profile['role_name'] ?? '-') ?></dd></div>
+                <div class="col">
+                    <dt class="small text-muted">Username</dt>
+                    <dd><?= e($profile['username']) ?></dd>
+                </div>
+                <div class="col">
+                    <dt class="small text-muted">Role</dt>
+                    <dd><?= e($profile['role_name'] ?? '-') ?></dd>
+                </div>
                 <div class="col">
                     <dt class="small text-muted">Account Status</dt>
                     <dd>
@@ -108,10 +109,10 @@ $displayAvatar = $profile['profile_picture']
 
     </div><!-- /col-lg-4 -->
 
-    <?php /* ── Right: personal info + change password ───────────────────── */ ?>
+    <?php /* ── Right: personal info (read-only) + change password ────── */ ?>
     <div class="col-lg-8">
 
-        <?php /* ── Personal & Employment Info (read-only) ───────────────── */ ?>
+        <?php /* ── Personal & Employment Info ──────────────────────── */ ?>
         <div class="panel p-3 mb-3">
             <h6 class="mb-3"><i class="bi bi-person"></i> Personal Information</h6>
             <div class="row g-3">
@@ -153,7 +154,7 @@ $displayAvatar = $profile['profile_picture']
             </div>
         </div>
 
-        <?php /* ── Account Information (read-only) ────────────────────── */ ?>
+        <?php /* ── Account Information (read-only) ──────────────────── */ ?>
         <div class="panel p-3 mb-3">
             <h6 class="mb-3"><i class="bi bi-shield-lock"></i> Account Information</h6>
             <div class="row g-3">
@@ -184,7 +185,7 @@ $displayAvatar = $profile['profile_picture']
             </div>
         </div>
 
-        <?php /* ── Change Password ──────────────────────────────────────── */ ?>
+        <?php /* ── Change Password ─────────────────────────────────── */ ?>
         <div class="panel p-3">
             <h6 class="mb-1"><i class="bi bi-key"></i> Change Password</h6>
             <p class="text-muted small mb-3">Enter your current password, then choose a new one.</p>
@@ -193,7 +194,9 @@ $displayAvatar = $profile['profile_picture']
                 <?= csrf_field() ?>
 
                 <div class="mb-3">
-                    <label for="current_password" class="form-label">Current Password <span class="text-danger">*</span></label>
+                    <label for="current_password" class="form-label">
+                        Current Password <span class="text-danger">*</span>
+                    </label>
                     <div class="input-group">
                         <input type="password"
                                class="form-control"
@@ -201,14 +204,17 @@ $displayAvatar = $profile['profile_picture']
                                name="current_password"
                                autocomplete="current-password"
                                required>
-                        <button class="btn btn-outline-secondary" type="button" onclick="togglePwd('current_password',this)" tabindex="-1">
+                        <button class="btn btn-outline-secondary" type="button"
+                                onclick="togglePwd('current_password',this)" tabindex="-1">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label for="new_password" class="form-label">New Password <span class="text-danger">*</span></label>
+                    <label for="new_password" class="form-label">
+                        New Password <span class="text-danger">*</span>
+                    </label>
                     <div class="input-group">
                         <input type="password"
                                class="form-control"
@@ -216,14 +222,17 @@ $displayAvatar = $profile['profile_picture']
                                name="new_password"
                                autocomplete="new-password"
                                required>
-                        <button class="btn btn-outline-secondary" type="button" onclick="togglePwd('new_password',this)" tabindex="-1">
+                        <button class="btn btn-outline-secondary" type="button"
+                                onclick="togglePwd('new_password',this)" tabindex="-1">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
                 </div>
 
                 <div class="mb-4">
-                    <label for="confirm_password" class="form-label">Confirm New Password <span class="text-danger">*</span></label>
+                    <label for="confirm_password" class="form-label">
+                        Confirm New Password <span class="text-danger">*</span>
+                    </label>
                     <div class="input-group">
                         <input type="password"
                                class="form-control"
@@ -231,7 +240,8 @@ $displayAvatar = $profile['profile_picture']
                                name="confirm_password"
                                autocomplete="new-password"
                                required>
-                        <button class="btn btn-outline-secondary" type="button" onclick="togglePwd('confirm_password',this)" tabindex="-1">
+                        <button class="btn btn-outline-secondary" type="button"
+                                onclick="togglePwd('confirm_password',this)" tabindex="-1">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
@@ -250,9 +260,9 @@ $displayAvatar = $profile['profile_picture']
 </div><!-- /row -->
 
 <script>
-/* Toggle password visibility */
+/* ── Toggle password field visibility ─────────────────────────── */
 function togglePwd(id, btn) {
-    var input = document.getElementById(id);
+    var input  = document.getElementById(id);
     var isText = input.type === 'text';
     input.type = isText ? 'password' : 'text';
     btn.innerHTML = isText
@@ -260,10 +270,10 @@ function togglePwd(id, btn) {
         : '<i class="bi bi-eye-slash"></i>';
 }
 
-/* Live client-side confirm-match check (UX only; server validates too) */
+/* ── Live confirm-match check (UX only; server validates too) ──── */
 document.getElementById('confirm_password').addEventListener('input', function () {
-    var newPwd  = document.getElementById('new_password').value;
-    var hint    = document.getElementById('confirmMismatch');
+    var newPwd = document.getElementById('new_password').value;
+    var hint   = document.getElementById('confirmMismatch');
     if (this.value && this.value !== newPwd) {
         hint.classList.remove('d-none');
         this.classList.add('is-invalid');
@@ -273,15 +283,15 @@ document.getElementById('confirm_password').addEventListener('input', function (
     }
 });
 
-/* Preview avatar before upload, then auto-submit */
+/* ── Preview avatar with FileReader, then auto-submit ─────────── */
 function previewAndSubmit(input) {
     if (!input.files || !input.files[0]) return;
 
-    var file = input.files[0];
-    var maxBytes = 2 * 1024 * 1024;
+    var file     = input.files[0];
+    var maxBytes = 5 * 1024 * 1024; // 5 MB — matches ProfileService::MAX_BYTES
 
     if (file.size > maxBytes) {
-        alert('Profile picture must not exceed 2 MB.');
+        alert('Profile picture must not exceed 5 MB.');
         input.value = '';
         return;
     }
@@ -293,27 +303,13 @@ function previewAndSubmit(input) {
         return;
     }
 
-    var reader = new FileReader();
+    var reader  = new FileReader();
     reader.onload = function (e) {
-        var preview = document.getElementById('avatarPreview');
-        if (preview.tagName === 'IMG') {
-            preview.src = e.target.result;
-        } else {
-            // Replace the placeholder div with an img
-            var img = document.createElement('img');
-            img.src = e.target.result;
-            img.alt = 'Profile Picture';
-            img.id  = 'avatarPreview';
-            img.className = 'rounded-circle border';
-            img.style.cssText = 'width:150px;height:150px;object-fit:cover;';
-            preview.replaceWith(img);
-        }
+        // avatarPreview is always an <img> — set src directly
+        document.getElementById('avatarPreview').src = e.target.result;
+        // Submit after the preview has been painted
+        document.getElementById('pictureUploadForm').submit();
     };
     reader.readAsDataURL(file);
-
-    // Auto-submit after brief preview delay
-    setTimeout(function () {
-        document.getElementById('pictureUploadForm').submit();
-    }, 400);
 }
 </script>

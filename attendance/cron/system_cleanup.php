@@ -88,7 +88,7 @@ try {
     $output[] = 'Tables optimized: ' . count($tables);
 
     /* ── 6. Stale temp upload files (> 24h) ───────────────── */
-    $uploadDir = dirname(__DIR__) . '/uploads';
+    $uploadDir = (string) config('upload_path');
     $deleted   = 0;
     if (is_dir($uploadDir)) {
         $iter = new \RecursiveIteratorIterator(

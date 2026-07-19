@@ -150,13 +150,10 @@
                     <tr>
                         <td><input type="checkbox" class="form-check-input employee-checkbox" name="ids[]" value="<?= e($emp['id']) ?>"></td>
                         <td>
-                            <?php if ($emp['photo']): ?>
-                                <img src="<?= url('uploads/' . $emp['photo']) ?>" alt="" class="rounded-circle" width="40" height="40">
-                            <?php else: ?>
-                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                    <i class="bi bi-person text-white"></i>
-                                </div>
-                            <?php endif; ?>
+                            <img src="<?= profile_picture_url($emp) ?>"
+                                 alt=""
+                                 class="rounded-circle"
+                                 style="width:40px;height:40px;object-fit:cover;">
                         </td>
                         <td><strong><?= e($emp['employee_number']) ?></strong></td>
                         <td>

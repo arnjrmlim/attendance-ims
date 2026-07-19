@@ -86,12 +86,14 @@ final class EmployeeService
                        b.name AS branch_name, 
                        s.name AS shift_name,
                        CONCAT(e.first_name, " ", e.last_name) AS full_name,
-                       u.username AS created_by_username
+                       u.username AS created_by_username,
+                       eu.profile_picture
                 FROM employees e
                 LEFT JOIN departments d ON d.id = e.department_id
                 LEFT JOIN branches b ON b.id = e.branch_id
                 LEFT JOIN shifts s ON s.id = e.shift_id
                 LEFT JOIN users u ON u.id = e.created_by
+                LEFT JOIN users eu ON eu.employee_id = e.id
                 WHERE ' . $whereClause . '
                 ORDER BY e.created_at DESC
                 LIMIT :offset, :per_page';
@@ -125,7 +127,8 @@ final class EmployeeService
                        u.id AS user_id,
                        u.role_id AS user_role_id,
                        r.name AS user_role_name,
-                       u.username AS user_username
+                       u.username AS user_username,
+                       u.profile_picture
                 FROM employees e
                 LEFT JOIN departments d ON d.id = e.department_id
                 LEFT JOIN branches b ON b.id = e.branch_id
@@ -195,11 +198,10 @@ final class EmployeeService
 
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-        // Handle photo upload
+        // Handle photo upload — REMOVED.
+        // Profile pictures are managed exclusively via Profile Settings (users.profile_picture).
+        // The employees.photo column is no longer written by the application.
         $photoPath = null;
-        if (!empty($_FILES['photo']['name'])) {
-            $photoPath = $this->uploadPhoto('photo');
-        }
 
         // Check if username/password columns exist
         $hasUsernameColumn = false;
@@ -348,16 +350,10 @@ final class EmployeeService
         $db->beginTransaction();
 
         try {
-            // Handle photo upload
+            // Photo upload — REMOVED.
+            // Profile pictures are managed exclusively via Profile Settings (users.profile_picture).
+            // Keep the existing employees.photo value unchanged (legacy data preservation).
             $photoPath = $employee['photo'];
-            if (!empty($_FILES['photo']['name'])) {
-                $photoPath = $this->uploadPhoto('photo');
-                // Delete old photo
-                if ($employee['photo']) {
-                    $this->deletePhoto($employee['photo']);
-                }
-                $this->addTimelineEntry($id, 'photo_updated', $employee['photo'], $photoPath, 'Profile photo updated', $userId);
-            }
 
             // Handle PIN change
             $pinHash = $employee['pin_hash'];
@@ -1062,7 +1058,8 @@ final class EmployeeService
     }
 
     /**
-     * Upload employee photo
+     * @deprecated Profile pictures are managed via ProfileService / users.profile_picture.
+     *             This method is retained only for reference and must not be called.
      */
     private function uploadPhoto(string $field): string
     {
@@ -1106,7 +1103,8 @@ final class EmployeeService
     }
 
     /**
-     * Delete employee photo
+     * @deprecated Profile pictures are managed via ProfileService / users.profile_picture.
+     *             This method is retained only for reference and must not be called.
      */
     private function deletePhoto(string $path): void
     {

@@ -18,7 +18,11 @@ use RuntimeException;
  */
 final class ProfileService
 {
-    // Allowed MIME types for profile pictures
+    // ----------------------------------------------------------------
+    // Upload constants — single source of truth
+    // ----------------------------------------------------------------
+
+    /** Accepted MIME types mapped to canonical extension */
     private const ALLOWED_MIME = [
         'image/jpeg' => 'jpg',
         'image/jpg'  => 'jpg',
@@ -26,8 +30,15 @@ final class ProfileService
         'image/webp' => 'webp',
     ];
 
-    // Maximum profile picture size (2 MB)
-    private const MAX_BYTES = 2 * 1024 * 1024;
+    /** Extensions that are explicitly blocked regardless of MIME */
+    private const BLOCKED_EXT = [
+        'php', 'php3', 'php4', 'php5', 'phtml', 'phar',
+        'svg', 'svgz',
+        'exe', 'bat', 'sh', 'cmd', 'com', 'vbs', 'js', 'jar',
+    ];
+
+    /** Maximum upload size: 5 MB */
+    private const MAX_BYTES = 5 * 1024 * 1024;
 
     // ----------------------------------------------------------------
     // Read
@@ -36,6 +47,7 @@ final class ProfileService
     /**
      * Load the full profile for the authenticated user.
      * Returns user row joined with employee row (if linked).
+     * Profile picture is read exclusively from users.profile_picture.
      */
     public function findByUserId(string $userId): ?array
     {
@@ -63,7 +75,6 @@ final class ProfileService
                 e.middle_name,
                 e.last_name,
                 e.suffix,
-                e.photo           AS employee_photo,
                 e.position,
                 e.department_id,
                 e.branch_id,
@@ -239,17 +250,21 @@ final class ProfileService
     // ----------------------------------------------------------------
 
     /**
-     * Upload or replace the user's profile picture.
+     * Upload or replace the authenticated user's profile picture.
      *
-     * Accepts JPG, JPEG, PNG, WEBP up to 2 MB.
-     * Stores file under uploads/avatars/{uuid}.{ext}
-     * Deletes the old picture if one existed.
+     * - Accepts JPG, JPEG, PNG, WEBP — up to 5 MB.
+     * - Rejects PHP, SVG, executables, and double-extension filenames.
+     * - Stores the file under uploads/avatars/ with a structured name:
+     *     profile_{userId}_{YYYYMMDD}_{random8hex}.{ext}
+     * - Deletes the previous picture (never deletes the default avatar asset).
+     * - Caller must own the account: verified in ProfileController.
      *
      * @throws InvalidArgumentException on validation failure
-     * @throws RuntimeException on file system failure
+     * @throws RuntimeException on filesystem failure
      */
     public function uploadProfilePicture(string $userId): string
     {
+        // ── 1. Basic presence / PHP upload error check ────────────────
         if (
             empty($_FILES['profile_picture']['name']) ||
             ($_FILES['profile_picture']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE
@@ -263,45 +278,71 @@ final class ProfileService
                 UPLOAD_ERR_INI_SIZE   => 'The file exceeds the server upload limit.',
                 UPLOAD_ERR_FORM_SIZE  => 'The file exceeds the maximum allowed size.',
                 UPLOAD_ERR_PARTIAL    => 'The file was only partially uploaded.',
-                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder.',
-                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
-                UPLOAD_ERR_EXTENSION  => 'A PHP extension stopped the upload.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary upload folder on the server.',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write the upload to disk.',
+                UPLOAD_ERR_EXTENSION  => 'A PHP extension blocked the upload.',
             ];
-            throw new RuntimeException($msgs[$error] ?? 'File upload failed.');
+            throw new RuntimeException($msgs[$error] ?? 'File upload failed (code ' . $error . ').');
         }
 
+        // ── 2. Size check (5 MB hard limit) ───────────────────────────
         if ($_FILES['profile_picture']['size'] > self::MAX_BYTES) {
-            throw new InvalidArgumentException('Profile picture must not exceed 2 MB.');
+            throw new InvalidArgumentException('Profile picture must not exceed 5 MB.');
         }
 
-        // Verify MIME type
+        // ── 3. Extension check — block dangerous types early ──────────
+        $originalName = $_FILES['profile_picture']['name'] ?? '';
+        // Strip leading dots and split on all dots to detect double extensions
+        $parts = explode('.', ltrim($originalName, '.'));
+        if (count($parts) > 2) {
+            throw new InvalidArgumentException('File names with multiple extensions are not allowed.');
+        }
+        $uploadedExt = strtolower(end($parts));
+        if (in_array($uploadedExt, self::BLOCKED_EXT, true)) {
+            throw new InvalidArgumentException('This file type is not allowed.');
+        }
+
+        // ── 4. MIME type validation via fileinfo ───────────────────────
         $finfo    = finfo_open(FILEINFO_MIME_TYPE);
         $mimeType = finfo_file($finfo, $_FILES['profile_picture']['tmp_name']);
         finfo_close($finfo);
 
         if (!array_key_exists($mimeType, self::ALLOWED_MIME)) {
-            throw new InvalidArgumentException('Profile picture must be JPG, PNG, or WEBP.');
+            throw new InvalidArgumentException(
+                'Profile picture must be a JPG, PNG, or WEBP image. ' .
+                'Detected type: ' . htmlspecialchars($mimeType, ENT_QUOTES, 'UTF-8') . '.'
+            );
         }
 
-        $ext       = self::ALLOWED_MIME[$mimeType];
+        $ext = self::ALLOWED_MIME[$mimeType];
+
+        // ── 5. Ensure upload directory exists ─────────────────────────
         $uploadDir = rtrim((string) config('upload_path'), DIRECTORY_SEPARATOR)
                    . DIRECTORY_SEPARATOR . 'avatars';
 
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
-            throw new RuntimeException('Could not create upload directory.');
+            throw new RuntimeException('Could not create the avatars upload directory.');
         }
 
-        $filename = uuid_v4() . '.' . $ext;
+        // ── 6. Generate structured filename ───────────────────────────
+        //   profile_{shortUserId}_{YYYYMMDD}_{random8hex}.{ext}
+        $shortId  = substr(str_replace('-', '', $userId), 0, 12);
+        $datePart = date('Ymd');
+        $rand     = bin2hex(random_bytes(4));           // 8 hex chars
+        $filename = "profile_{$shortId}_{$datePart}_{$rand}.{$ext}";
         $target   = $uploadDir . DIRECTORY_SEPARATOR . $filename;
 
+        // ── 7. Move the temporary file into place ─────────────────────
         if (!move_uploaded_file($_FILES['profile_picture']['tmp_name'], $target)) {
-            throw new RuntimeException('Unable to store profile picture.');
+            throw new RuntimeException('Unable to store the profile picture. Check directory permissions.');
         }
 
         $relativePath = 'avatars/' . $filename;
 
-        // Delete old picture
-        $stmt = Database::connection()->prepare('SELECT profile_picture, employee_id FROM users WHERE id = ?');
+        // ── 8. Delete the old picture (if any) ────────────────────────
+        $stmt = Database::connection()->prepare(
+            'SELECT profile_picture, employee_id FROM users WHERE id = ?'
+        );
         $stmt->execute([$userId]);
         $row = $stmt->fetch();
 
@@ -309,12 +350,12 @@ final class ProfileService
             $this->deleteFile($row['profile_picture']);
         }
 
-        // Persist
+        // ── 9. Persist new path ───────────────────────────────────────
         Database::connection()->prepare(
             'UPDATE users SET profile_picture = :path, updated_at = NOW() WHERE id = :id'
         )->execute(['path' => $relativePath, 'id' => $userId]);
 
-        // Audit + timeline
+        // ── 10. Audit + optional timeline entry ───────────────────────
         (new AuditService())->log(
             'PROFILE_PICTURE_UPDATED',
             'users',

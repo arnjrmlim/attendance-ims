@@ -1,0 +1,11 @@
+# Deny execution of PHP and other scripts in the uploads directory.
+# Files here are served as static assets only.
+<FilesMatch "\.(?i:php[0-9]?|phtml|phar|pl|py|cgi|sh|shtml)$">
+    Require all denied
+</FilesMatch>
+
+# Optional: deny SVG if your stack allows XSS via SVG
+<FilesMatch "\.(?i:svg|svgz)$">
+    Header set Content-Type "image/svg+xml"
+    Header set X-Content-Type-Options "nosniff"
+</FilesMatch>

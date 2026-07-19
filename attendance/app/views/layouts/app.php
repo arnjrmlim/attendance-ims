@@ -67,19 +67,14 @@ $flashError = flash('error');
             <form class="d-flex me-3" role="search" action="<?= url('search') ?>">
                 <input class="form-control form-control-sm" name="q" type="search" placeholder="Search" value="<?= e($_GET['q'] ?? '') ?>">
             </form>
-            <?php /* User dropdown — Notifications + Profile Settings + Logout */ ?>
+                    <?php /* User dropdown — Notifications + Profile Settings + Logout */ ?>
             <div class="dropdown">
                 <button class="btn btn-light btn-sm dropdown-toggle d-flex align-items-center gap-2"
                         type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <?php $avatarPath = $_SESSION['user']['profile_picture'] ?? null; ?>
-                    <?php if ($avatarPath): ?>
-                        <img src="<?= url('uploads/' . e($avatarPath)) ?>"
-                             alt="avatar"
-                             class="rounded-circle"
-                             style="width:24px;height:24px;object-fit:cover;">
-                    <?php else: ?>
-                        <i class="bi bi-person-circle fs-5"></i>
-                    <?php endif; ?>
+                    <img src="<?= profile_picture_url($user) ?>"
+                         alt=""
+                         class="rounded-circle"
+                         style="width:24px;height:24px;object-fit:cover;">
                     <span class="d-none d-md-inline"><?= e($user['full_name'] ?? $user['username']) ?></span>
                     <?php if (($unreadNotifications ?? 0) > 0): ?>
                         <span class="badge rounded-pill bg-danger" style="font-size:.65rem;"><?= (int) $unreadNotifications ?></span>
