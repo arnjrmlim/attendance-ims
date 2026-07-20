@@ -9,6 +9,7 @@ use App\Controllers\AuthController;
 use App\Controllers\AuditController;
 use App\Controllers\BackupController;
 use App\Controllers\BranchController;
+use App\Controllers\ShiftController;
 use App\Controllers\CalendarController;
 use App\Controllers\DashboardController;
 use App\Controllers\DepartmentController;
@@ -157,3 +158,16 @@ $router->get('/departments/edit', [DepartmentController::class, 'edit']);
 $router->post('/departments/update', [DepartmentController::class, 'update']);
 $router->post('/departments/activate', [DepartmentController::class, 'activate']);
 $router->post('/departments/deactivate', [DepartmentController::class, 'deactivate']);
+
+/* ── Shift Management ────────────────────────────────────────────── */
+$router->get('/shifts',              [ShiftController::class, 'index']);
+$router->get('/shifts/create',       [ShiftController::class, 'create']);
+$router->post('/shifts/store',       [ShiftController::class, 'store']);
+$router->get('/shifts/show',         [ShiftController::class, 'show']);
+$router->get('/shifts/edit',         [ShiftController::class, 'edit']);
+$router->post('/shifts/update',      [ShiftController::class, 'update']);
+$router->post('/shifts/delete',      [ShiftController::class, 'delete']);
+$router->post('/shifts/activate',    [ShiftController::class, 'activate']);
+$router->post('/shifts/deactivate',  [ShiftController::class, 'deactivate']);
+$router->post('/shifts/set-default', [ShiftController::class, 'setDefault']);
+$router->get('/shifts/employees',    [ShiftController::class, 'assignedEmployees']);

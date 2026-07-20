@@ -144,6 +144,7 @@ CREATE TABLE `departments` (
 CREATE TABLE `shifts` (
   `id`                    CHAR(36)     NOT NULL,
   `name`                  VARCHAR(80)  NOT NULL,
+  `description`           TEXT         DEFAULT NULL,
   `type`                  ENUM('regular','night','flexible') NOT NULL DEFAULT 'regular',
   `time_in`               TIME         NOT NULL,
   `time_out`              TIME         NOT NULL,
@@ -154,10 +155,12 @@ CREATE TABLE `shifts` (
   `required_hours`        DECIMAL(4,2) NOT NULL DEFAULT 8.00,
   `overnight`             TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1 = time_out is next day',
   `status`                ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  `is_default`            TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1 = auto-assigned to new employees',
   `created_at`            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_shifts_status` (`status`)
+  KEY `idx_shifts_status` (`status`),
+  KEY `idx_shifts_default` (`is_default`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

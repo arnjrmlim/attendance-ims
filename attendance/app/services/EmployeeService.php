@@ -170,6 +170,16 @@ final class EmployeeService
         // Validate role exists and user has permission to assign it
         $this->validateRoleAssignment($data['role_id']);
 
+        // Auto-assign the default shift when none is selected
+        if (empty($data['shift_id'])) {
+            $defaultShift = Database::connection()
+                ->query("SELECT id FROM shifts WHERE is_default = 1 AND status = 'active' LIMIT 1")
+                ->fetch();
+            if ($defaultShift) {
+                $data['shift_id'] = $defaultShift['id'];
+            }
+        }
+
         $id = uuid_v4();
         $userId = current_user()['id'] ?? null;
 

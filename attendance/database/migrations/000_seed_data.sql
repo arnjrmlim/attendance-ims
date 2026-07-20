@@ -51,6 +51,7 @@ INSERT INTO `permissions` (`name`, `slug`, `module`, `description`) VALUES
 ('View Shifts',              'shifts.view',               'shifts',      'View shifts'),
 ('Create Shifts',            'shifts.create',             'shifts',      'Add shift'),
 ('Edit Shifts',              'shifts.edit',               'shifts',      'Modify shift'),
+('Delete Shifts',            'shifts.delete',             'shifts',      'Delete shift'),
 -- Attendance
 ('View All Attendance',      'attendance.view_all',       'attendance',  'View any employee attendance'),
 ('View Own Attendance',      'attendance.view_own',       'attendance',  'View own attendance only'),
@@ -108,7 +109,7 @@ WHERE `slug` IN (
   'employees.view','employees.create','employees.edit','employees.delete','employees.status',
   'employees.import','employees.export','employees.timeline','employees.photos','employees.qr_regenerate',
   'departments.view','departments.create','departments.edit',
-  'shifts.view','shifts.create','shifts.edit',
+  'shifts.view','shifts.create','shifts.edit','shifts.delete',
   'attendance.view_all','attendance.record','attendance.edit','attendance.monitor',
   'manual_attendance.manage','manual_attendance.approve',
   'leaves.manage','leaves.create_own',
@@ -170,12 +171,13 @@ INSERT INTO `departments` (`id`, `branch_id`, `name`, `code`, `description`, `de
 -- ============================================================
 -- Shifts
 -- ============================================================
-INSERT INTO `shifts` (`id`, `name`, `type`, `time_in`, `time_out`, `lunch_break_start`, `lunch_break_end`, `lunch_break_minutes`, `grace_period_minutes`, `required_hours`, `overnight`) VALUES
-('s1000000-0000-0000-0000-000000000001', 'Morning Shift (7AM-4PM)',   'regular',  '07:00:00', '16:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0),
-('s2000000-0000-0000-0000-000000000001', 'Day Shift (8AM-5PM)',       'regular',  '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0),
-('s3000000-0000-0000-0000-000000000001', 'Mid Shift (10AM-7PM)',      'regular',  '10:00:00', '19:00:00', '14:00:00', '15:00:00', 60, 15, 8.00, 0),
-('s4000000-0000-0000-0000-000000000001', 'Night Shift (10PM-6AM)',    'night',    '22:00:00', '06:00:00', '02:00:00', '03:00:00', 60, 15, 8.00, 1),
-('s5000000-0000-0000-0000-000000000001', 'Flexible Shift',            'flexible', '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 30, 8.00, 0);
+INSERT INTO `shifts` (`id`, `name`, `description`, `type`, `time_in`, `time_out`, `lunch_break_start`, `lunch_break_end`, `lunch_break_minutes`, `grace_period_minutes`, `required_hours`, `overnight`, `status`, `is_default`) VALUES
+('s0000000-0000-0000-0000-000000000001', 'Regular Office Hours',      'Standard 8 AM – 5 PM office shift with a 1-hour lunch break.',    'regular',  '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0, 'active', 1),
+('s1000000-0000-0000-0000-000000000001', 'Morning Shift (7AM-4PM)',   '7 AM early morning shift.',                                       'regular',  '07:00:00', '16:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0, 'active', 0),
+('s2000000-0000-0000-0000-000000000001', 'Day Shift (8AM-5PM)',       'Standard day shift.',                                             'regular',  '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0, 'active', 0),
+('s3000000-0000-0000-0000-000000000001', 'Mid Shift (10AM-7PM)',      'Mid-day shift for split-schedule teams.',                         'regular',  '10:00:00', '19:00:00', '14:00:00', '15:00:00', 60, 15, 8.00, 0, 'active', 0),
+('s4000000-0000-0000-0000-000000000001', 'Night Shift (10PM-6AM)',    'Overnight shift spanning midnight.',                              'night',    '22:00:00', '06:00:00', '02:00:00', '03:00:00', 60, 15, 8.00, 1, 'active', 0),
+('s5000000-0000-0000-0000-000000000001', 'Flexible Shift',            'Flexible schedule with extended grace period.',                   'flexible', '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 30, 8.00, 0, 'active', 0);
 
 -- ============================================================
 -- Employees

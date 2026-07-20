@@ -36,7 +36,15 @@ final class DirectoryService
 
     public function shifts(): array
     {
-        return Database::connection()->query("SELECT id, name, time_in, time_out FROM shifts WHERE status = 'active' ORDER BY name")->fetchAll();
+        return Database::connection()->query(
+            "SELECT id, name, time_in, time_out,
+                    lunch_break_start, lunch_break_end,
+                    grace_period_minutes, required_hours,
+                    is_default
+               FROM shifts
+              WHERE status = 'active'
+              ORDER BY is_default DESC, name ASC"
+        )->fetchAll();
     }
 
     public function roles(): array

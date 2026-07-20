@@ -227,9 +227,15 @@
                     <select class="form-select" name="shift_id" required>
                         <option value="">Select Shift</option>
                         <?php foreach ($shifts as $shift): ?>
-                            <option value="<?= e($shift['id']) ?>" <?= ($employee['shift_id'] ?? '') === $shift['id'] ? 'selected' : '' ?>><?= e($shift['name']) ?> (<?= e($shift['time_in']) ?> - <?= e($shift['time_out']) ?>)</option>
+                            <option value="<?= e($shift['id']) ?>"
+                                <?= ($employee['shift_id'] ?? '') === $shift['id'] ? 'selected' : '' ?>>
+                                <?= e($shift['name']) ?>
+                                (<?= date('h:i A', strtotime($shift['time_in'])) ?> – <?= date('h:i A', strtotime($shift['time_out'])) ?>)
+                                <?= (int)($shift['is_default'] ?? 0) ? ' ★' : '' ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
+                    <div class="form-text">Changing the shift only affects future attendance calculations.</div>
                 </div>
             </div>
         </div>

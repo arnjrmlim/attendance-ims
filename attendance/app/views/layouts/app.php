@@ -46,6 +46,9 @@ $flashError = flash('error');
                     <li class="nav-item"><a class="nav-link" href="<?= url('employees') ?>"><i class="bi bi-people"></i> Employees</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= url('holidays') ?>"><i class="bi bi-sun"></i> Holidays</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= url('audit') ?>"><i class="bi bi-shield-check"></i> Audit</a></li>
+                    <?php if (!has_role('administrator')): ?>
+                        <li class="nav-item"><a class="nav-link" href="<?= url('shifts') ?>"><i class="bi bi-clock"></i> Shifts</a></li>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <?php if (has_role('administrator')): ?>
                 <li class="nav-item dropdown">
@@ -53,6 +56,7 @@ $flashError = flash('error');
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="<?= url('branches') ?>"><i class="bi bi-building me-1"></i> Branches</a></li>
                         <li><a class="dropdown-item" href="<?= url('departments') ?>"><i class="bi bi-diagram-3 me-1"></i> Departments</a></li>
+                        <li><a class="dropdown-item" href="<?= url('shifts') ?>"><i class="bi bi-clock me-1"></i> Shifts</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="<?= url('backups') ?>"><i class="bi bi-hdd-stack me-1"></i> Backups</a></li>
                         <li><a class="dropdown-item" href="<?= url('email-settings') ?>"><i class="bi bi-envelope-gear me-1"></i> Email Settings</a></li>
