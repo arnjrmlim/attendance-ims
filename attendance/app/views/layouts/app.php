@@ -61,6 +61,7 @@ $flashError = flash('error');
                         <li><a class="dropdown-item" href="<?= url('backups') ?>"><i class="bi bi-hdd-stack me-1"></i> Backups</a></li>
                         <li><a class="dropdown-item" href="<?= url('email-settings') ?>"><i class="bi bi-envelope-gear me-1"></i> Email Settings</a></li>
                         <li><a class="dropdown-item" href="<?= url('email-logs') ?>"><i class="bi bi-envelope-paper me-1"></i> Email Logs</a></li>
+                        <li><a class="dropdown-item" href="<?= url('email-schedule/test') ?>"><i class="bi bi-send-check me-1"></i> Email Schedule Test</a></li>
                         <li><a class="dropdown-item" href="<?= url('system/settings') ?>"><i class="bi bi-sliders me-1"></i> System Settings</a></li>
                         <li><a class="dropdown-item" href="<?= url('system/health') ?>"><i class="bi bi-heart-pulse me-1"></i> System Health</a></li>
                         <li><a class="dropdown-item" href="<?= url('system/job-logs') ?>"><i class="bi bi-list-task me-1"></i> Job Logs</a></li>

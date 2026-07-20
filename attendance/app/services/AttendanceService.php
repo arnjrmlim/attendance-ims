@@ -108,6 +108,9 @@ final class AttendanceService
         $sql = "SELECT
                     e.id AS employee_id,
                     e.employee_number,
+                    e.first_name,
+                    e.middle_name,
+                    e.last_name,
                     CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
                     d.name AS department_name,
                     b.name AS branch_name,

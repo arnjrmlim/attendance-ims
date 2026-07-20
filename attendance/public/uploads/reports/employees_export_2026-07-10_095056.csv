@@ -1,0 +1,4 @@
+"Employee Number","First Name","Middle Name","Last Name",Suffix,Gender,"Date of Birth","Civil Status",Nationality,Department,Branch,Position,Shift,"Employment Status","Employment Type","Date Hired","Contact Number",Email,"Home Address","Emergency Contact Name","Emergency Contact Number","Emergency Contact Relationship",Status
+EMP-0002,Maria,Santos,Reyes,,,,,,"Human Resources","Main Branch","HR Manager","Day Shift (8AM-5PM)",,Probationary,2021-03-15,09182345678,maria.reyes@company.com,,,,,inactive
+EMP-0003,Jose,Cruz,Garcia,,,,,,"Information Technology","Main Branch","IT Specialist","Day Shift (8AM-5PM)",,Probationary,2022-06-01,09193456789,jose.garcia@company.com,,,,,active
+EMP-0005,Roberto,Mendoza,"Dela Cruz",,,,,,Operations,"Main Branch","Operations Supervisor","Morning Shift (7AM-4PM)",,Probationary,2019-08-20,09215678901,roberto.dc@company.com,,,,,active

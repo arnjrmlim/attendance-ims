@@ -106,8 +106,11 @@ $router->post('/email-logs/resend', [EmailLogsController::class, 'resend']);
 $router->post('/email-logs/delete', [EmailLogsController::class, 'delete']);
 
 /* ── Phase 5: Email Scheduling ───────────────────────────────────────── */
-$router->get('/email-schedule/check', [EmailScheduleController::class, 'check']);
-$router->get('/email-schedule/status', [EmailScheduleController::class, 'status']);
+$router->get('/email-schedule/check',     [EmailScheduleController::class, 'check']);
+$router->get('/email-schedule/status',    [EmailScheduleController::class, 'status']);
+$router->get('/email-schedule/test',      [EmailScheduleController::class, 'testPage']);
+$router->get('/email-schedule/test-logs', [EmailScheduleController::class, 'testLogs']);
+$router->post('/email-schedule/test-run', [EmailScheduleController::class, 'testRun']);
 
 /* ── Phase 3: Database Backups ──────────────────────────────────────── */
 $router->get('/backups', [BackupController::class, 'index']);
