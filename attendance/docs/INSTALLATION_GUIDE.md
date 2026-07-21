@@ -1,4 +1,6 @@
-# Installation Guide — Attendance Management System
+# Installation Guide — IMS Attendance Management Portal
+
+**Integrated Management Services, Inc.**
 
 Target environment: **Windows 10 / 11 + XAMPP (Apache, MySQL/MariaDB, PHP 8.3+)**,
 running standalone on a branch's dedicated Attendance PC.

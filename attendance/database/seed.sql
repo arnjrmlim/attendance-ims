@@ -181,7 +181,7 @@ INSERT INTO `attendance_summary` (`id`, `employee_id`, `attendance_date`, `time_
 -- Settings
 -- ============================================================
 INSERT INTO `settings` (`key`, `value`, `type`, `group`, `description`) VALUES
-('app_name',               'Attendance Management System', 'string',  'general',  'Application name'),
+('app_name',               'Integrated Management Services, Inc.', 'string',  'general',  'Application name'),
 ('app_version',            '1.0.0',                       'string',  'general',  'Application version'),
 ('branch_name',            'Main Branch',                 'string',  'general',  'Current branch name'),
 ('branch_id',              'b1000000-0000-0000-0000-000000000001', 'string', 'general', 'Current branch UUID'),

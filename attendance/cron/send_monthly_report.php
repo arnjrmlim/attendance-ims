@@ -142,7 +142,7 @@ try {
 </div>
 
 <p>Please find the detailed CSV report attached.</p>
-<p style="color:#667085;font-size:12px">Generated automatically by the Attendance Management System on HTML;
+<p style="color:#667085;font-size:12px">Generated automatically by Integrated Management Services, Inc. — Attendance Management Portal on HTML;
     $htmlBody .= date('Y-m-d H:i:s') . '.</p></body></html>';
 
     /* ── Send ──────────────────────────────────────────────── */

@@ -1,5 +1,7 @@
 # Email Scheduling — Setup & Reference Guide
 
+**Integrated Management Services, Inc. — Attendance Management Portal**
+
 ## Overview
 
 The system sends bi-monthly attendance reports automatically:

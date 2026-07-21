@@ -28,6 +28,26 @@ if (!function_exists('url')) {
     }
 }
 
+if (!function_exists('asset_url')) {
+    /**
+     * Return a URL for a public asset with an automatic cache-busting query
+     * string derived from the file's last-modified timestamp.
+     *
+     * Usage:  asset_url('assets/img/logo.svg')
+     * Output: /attendance-ims/attendance/public/assets/img/logo.svg?v=1721234567
+     *
+     * The version changes automatically whenever the file on disk changes,
+     * so browsers always fetch the latest version without a manual bump.
+     */
+    function asset_url(string $path): string
+    {
+        $base = rtrim((string) config('base_url'), '/');
+        $abs  = dirname(__DIR__, 2) . '/public/' . ltrim($path, '/');
+        $v    = is_file($abs) ? filemtime($abs) : 1;
+        return $base . '/' . ltrim($path, '/') . '?v=' . $v;
+    }
+}
+
 if (!function_exists('redirect')) {
     function redirect(string $path): never
     {

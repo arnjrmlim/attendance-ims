@@ -1,8 +1,9 @@
 <section class="min-vh-100 d-flex align-items-center justify-content-center p-3">
     <div class="panel p-4" style="width:min(420px,100%)">
         <div class="text-center mb-4">
-            <img src="<?= url('assets/img/logo.svg') ?>" width="64" height="64" alt="">
-            <h1 class="h4 mt-3">Attendance Management System</h1>
+            <img src="<?= asset_url('assets/img/logo.svg') ?>" width="80" height="80" alt="IMS">
+            <h1 class="h4 mt-3">Integrated Management Services, Inc.</h1>
+            <p class="text-muted small mb-0">Attendance Management Portal</p>
         </div>
         <form method="post" action="<?= url('login') ?>">
             <?= csrf_field() ?>

@@ -123,8 +123,8 @@ final class EmailService
      */
     public function sendTest(string $to): array
     {
-        $subject = '[AMS] Test Email — ' . date('Y-m-d H:i:s');
-        $body    = '<p>This is a test email from the Attendance Management System.</p>'
+        $subject = '[IMS] Test Email — ' . date('Y-m-d H:i:s');
+        $body    = '<p>This is a test email from Integrated Management Services, Inc. — Attendance Management Portal.</p>'
                  . '<p>If you received this, your SMTP settings are configured correctly.</p>';
 
         $ok = $this->deliverSmtp($to, $subject, $body, null);

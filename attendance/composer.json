@@ -1,6 +1,6 @@
 {
     "name": "ims/attendance",
-    "description": "Branch Attendance Management System - Phase 1",
+    "description": "Integrated Management Services, Inc. — Attendance Management Portal",
     "type": "project",
     "require": {
         "php": ">=8.3",

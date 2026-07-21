@@ -1,9 +1,9 @@
-# Attendance Management System (AMS)
+# IMS Attendance Management Portal
 
-A branch-based Attendance Management System built for Windows + XAMPP
-(Apache, MySQL/MariaDB, PHP 8.3+). Designed to run unattended on a
-branch's dedicated Attendance PC, with self-maintaining background
-services for reporting, backups, and system health.
+**Integrated Management Services, Inc.** — internal attendance management
+system built for Windows + XAMPP (Apache, MySQL/MariaDB, PHP 8.3+).
+Designed to run unattended on a branch's dedicated Attendance PC, with
+self-maintaining background services for reporting, backups, and system health.
 
 Built in three phases:
 

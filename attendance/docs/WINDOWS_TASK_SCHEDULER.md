@@ -1,6 +1,8 @@
 # Windows Task Scheduler — Background Jobs Setup Guide
 
-The Attendance Management System's background services (`/cron/*.php`) are
+**Integrated Management Services, Inc. — Attendance Management Portal**
+
+The IMS Attendance Portal's background services (`/cron/*.php`) are
 plain PHP CLI scripts. They are **not** run by a web server request — they
 must be triggered on a schedule by **Windows Task Scheduler**, using the
 PHP binary that ships with XAMPP.
@@ -55,9 +57,9 @@ Repeat these steps once per job in the table above.
 2. In the right-hand panel, click **Create Task…** (not "Create Basic
    Task" — the full dialog gives more control).
 3. **General tab**
-   - Name: `AMS - Daily Backup` (match the job, e.g. `AMS - Monthly Report`,
-     `AMS - Retry Failed Emails`, `AMS - System Cleanup`,
-     `AMS - Archive Records`, `AMS - Database Health Check`)
+   - Name: `IMS - Daily Backup` (match the job, e.g. `IMS - Monthly Report`,
+     `IMS - Retry Failed Emails`, `IMS - System Cleanup`,
+     `IMS - Archive Records`, `IMS - Database Health Check`)
    - Select **Run whether user is logged on or not**
    - Check **Run with highest privileges**
    - Configure for: Windows 10 / Windows 11
@@ -113,32 +115,32 @@ network drive).
 
 ```cmd
 :: 1. Monthly attendance report — 1st of month, 12:00 AM
-schtasks /Create /TN "AMS - Monthly Report" ^
+schtasks /Create /TN "IMS - Monthly Report" ^
   /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\attendance-ims\attendance\cron\send_monthly_report.php\"" ^
   /SC MONTHLY /D 1 /ST 00:00 /RU SYSTEM /RL HIGHEST /F
 
 :: 2. Daily database backup — 1:00 AM
-schtasks /Create /TN "AMS - Daily Backup" ^
+schtasks /Create /TN "IMS - Daily Backup" ^
   /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\attendance-ims\attendance\cron\daily_backup.php\"" ^
   /SC DAILY /ST 01:00 /RU SYSTEM /RL HIGHEST /F
 
 :: 3. Retry failed emails — every hour
-schtasks /Create /TN "AMS - Retry Failed Emails" ^
+schtasks /Create /TN "IMS - Retry Failed Emails" ^
   /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\attendance-ims\attendance\cron\retry_failed_emails.php\"" ^
   /SC HOURLY /MO 1 /ST 00:00 /RU SYSTEM /RL HIGHEST /F
 
 :: 4. System cleanup — 2:00 AM daily
-schtasks /Create /TN "AMS - System Cleanup" ^
+schtasks /Create /TN "IMS - System Cleanup" ^
   /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\attendance-ims\attendance\cron\system_cleanup.php\"" ^
   /SC DAILY /ST 02:00 /RU SYSTEM /RL HIGHEST /F
 
 :: 5. Archive old records — 2nd of month, 3:00 AM
-schtasks /Create /TN "AMS - Archive Records" ^
+schtasks /Create /TN "IMS - Archive Records" ^
   /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\attendance-ims\attendance\cron\archive_records.php\"" ^
   /SC MONTHLY /D 2 /ST 03:00 /RU SYSTEM /RL HIGHEST /F
 
 :: 6. Database health check — 4:00 AM daily
-schtasks /Create /TN "AMS - Database Health Check" ^
+schtasks /Create /TN "IMS - Database Health Check" ^
   /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\attendance-ims\attendance\cron\database_health_check.php\"" ^
   /SC DAILY /ST 04:00 /RU SYSTEM /RL HIGHEST /F
 ```
@@ -146,21 +148,21 @@ schtasks /Create /TN "AMS - Database Health Check" ^
 Useful follow-up commands:
 
 ```cmd
-:: List all AMS tasks and their last run result
-schtasks /Query /TN "AMS - Daily Backup" /V /FO LIST
+:: List all IMS tasks and their last run result
+schtasks /Query /TN "IMS - Daily Backup" /V /FO LIST
 
 :: Run a task immediately (for testing)
-schtasks /Run /TN "AMS - Daily Backup"
+schtasks /Run /TN "IMS - Daily Backup"
 
 :: Delete a task
-schtasks /Delete /TN "AMS - Daily Backup" /F
+schtasks /Delete /TN "IMS - Daily Backup" /F
 ```
 
 > **Note on `SYSTEM` account:** running as `SYSTEM` avoids password-expiry
 > issues but has no mapped network drives and no interactive desktop —
 > that's fine here since these scripts only need PHP CLI + MySQL access.
 > If your MySQL data directory or backup storage path lives on a network
-> share, use a dedicated service account (`/RU domain\svc-ams`) instead.
+> share, use a dedicated service account (`/RU domain\svc-ims`) instead.
 
 ---
 

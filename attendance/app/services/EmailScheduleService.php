@@ -279,7 +279,7 @@ final class EmailScheduleService
         $st = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
 
         $companyName = (string) $this->cfg->get('company_name', 'IMS');
-        $appName     = (string) $this->cfg->get('app_name',     'Attendance Management System');
+        $appName     = (string) $this->cfg->get('app_name', 'Integrated Management Services, Inc.');
         $tz          = $this->formatTimezone($timezone);
         $esc         = static fn($v) => htmlspecialchars((string) ($v ?? ''));
         $shortLabel  = $this->periodShortLabel($dateFrom, $dateTo);
@@ -409,7 +409,7 @@ HTML;
             )->execute([
                 $id,
                 $recipient ?: '(none)',
-                $subject   ?: '[AMS] Attendance Report',
+                $subject   ?: '[IMS] Attendance Report',
                 $periodLabel,
                 "Trigger: {$reason} | TZ: {$timezone} | Date: {$sendDate}" . ($isTest ? ' | TEST RUN' : ''),
                 $status === 'dry_run' ? 'queued' : ($status === 'success' ? 'sent' : 'failed'),

@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 return [
-    'name' => 'Attendance Management System',
+    'name'         => 'Integrated Management Services, Inc.',
+    'short_name'   => 'IMS',
     'version' => '2.0.0',
     'timezone' => 'Asia/Manila',
     'base_url' => '/attendance-ims/attendance/public',

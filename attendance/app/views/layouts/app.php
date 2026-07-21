@@ -21,8 +21,8 @@ $flashError = flash('error');
 <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
     <div class="container-fluid">
         <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="<?= url('dashboard') ?>">
-            <img src="<?= url('assets/img/logo.svg') ?>" alt="" width="30" height="30">
-            AMS
+            <img src="<?= asset_url('assets/img/logo.svg') ?>" alt="IMS" width="32" height="32">
+            IMS
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
             <span class="navbar-toggler-icon"></span>
