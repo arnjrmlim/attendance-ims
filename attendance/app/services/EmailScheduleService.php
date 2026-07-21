@@ -104,14 +104,12 @@ final class EmailScheduleService
      * Execute the report pipeline.
      *
      * Shared by both the production scheduler and the manual test runner.
-     * Never duplicates its own scheduling logic — it simply executes
-     * whatever date/period context it is given.
      *
-     * @param string $sendDate     YYYY-MM-DD anchor date (real or simulated)
-     * @param string $reason       Human-readable trigger reason
-     * @param string $timezone     Timezone label for logging
-     * @param bool   $dryRun       When true, build the report but do NOT send
-     * @param bool   $isTest       When true, log as a test run (not a real send)
+     * @param string $sendDate   YYYY-MM-DD anchor date (real or simulated)
+     * @param string $reason     Human-readable trigger reason
+     * @param string $timezone   Timezone label for logging
+     * @param bool   $dryRun     When true, build the report but do NOT send
+     * @param bool   $isTest     When true, log as a test run (not a real send)
      * @return array
      */
     private function executeReport(
@@ -153,7 +151,7 @@ final class EmailScheduleService
             // Count employees in the period (for dry-run display)
             $employeeCount = $this->countEmployeesInPeriod($dateFrom, $dateTo);
 
-            // Generate Excel attachment
+            // ── Generate Excel attachment ─────────────────────────────────
             $attachmentPath = null;
             $attachmentName = null;
             try {
@@ -164,11 +162,36 @@ final class EmailScheduleService
                 error_log('Excel generation failed: ' . $e->getMessage());
             }
 
+            // ── ZIP compression (P4) ──────────────────────────────────────
+            $compress = $this->cfg->get('email_report_compress', '0') === '1';
+            if ($compress && $attachmentPath && is_file($attachmentPath)) {
+                if (!class_exists('ZipArchive')) {
+                    // Extension not loaded — skip ZIP, attach xlsx as-is
+                    error_log('ZipArchive extension is not enabled in php.ini. '
+                        . 'Enable extension=zip to use ZIP compression. '
+                        . 'Attaching raw Excel file instead.');
+                } else {
+                    $zipPath = $attachmentPath . '.zip';
+                    $zip     = new \ZipArchive();
+                    if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
+                        $zip->addFile($attachmentPath, basename($attachmentPath));
+                        $zip->close();
+                        @unlink($attachmentPath);          // remove the raw xlsx
+                        $attachmentPath = $zipPath;
+                        $attachmentName = basename($zipPath);
+                    } else {
+                        // ZIP failed — continue with the xlsx as-is
+                        error_log('ZipArchive failed to create: ' . $zipPath);
+                    }
+                }
+            }
+
             $subject   = 'IMS – Attendance Report (' . $this->periodShortLabel($dateFrom, $dateTo) . ')';
             $periodKey = $this->resolvePeriodKey($sendDate);
 
             // ── DRY RUN: stop before sending ─────────────────────────────
             if ($dryRun) {
+                // Dry-run test logs are fine to write — not a real send
                 $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
                     $recipient, $subject, 'dry_run', null, true);
                 if ($attachmentPath && is_file($attachmentPath)) {
@@ -187,31 +210,36 @@ final class EmailScheduleService
                     'date_to'         => $dateTo,
                     'attachment_name' => $attachmentName,
                     'employee_count'  => $employeeCount,
+                    'compressed'      => $compress && str_ends_with((string)$attachmentName, '.zip'),
                     'report_html_preview' => mb_substr(strip_tags($reportHtml), 0, 300),
                 ];
             }
 
             // ── REAL SEND ─────────────────────────────────────────────────
-            $toList  = $recipient;
-            if (!empty($cc))  { $toList .= ',' . $cc; }
-            if (!empty($bcc)) { $toList .= ',' . $bcc; }
+            // P8: EmailService::send() creates the single authoritative email_log row.
+            // We do NOT call logEmailTest() for production sends — that would duplicate the row.
+            // For test runs (isTest=true) we DO call logEmailTest() after, to tag the row.
 
-            $success = $this->emailService->send(
-                $toList, $subject, $reportHtml, $attachmentPath, $periodLabel
+            $success = $this->emailService->sendWithPeriod(
+                $recipient, $cc, $bcc,
+                $subject, $reportHtml,
+                $attachmentPath, $periodLabel,
+                $dateFrom, $dateTo
             );
 
-            if ($attachmentPath && is_file($attachmentPath)) {
-                @unlink($attachmentPath);
-            }
+            // Attachment file is now owned by EmailService; do NOT unlink here.
+            // EmailService::sendWithPeriod() handles cleanup after SMTP delivery.
 
             if ($success) {
-                // Only record as "sent" for real production runs, not test runs
                 if (!$isTest) {
+                    // Production: mark period as sent so duplicate prevention fires
                     $this->cfg->set('last_email_sent_date', $sendDate);
                     $this->markPeriodSent($periodKey, $sendDate);
+                } else {
+                    // Test run: annotate the email_logs row created by EmailService
+                    $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
+                        $recipient, $subject, 'success', null, true);
                 }
-                $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
-                    $recipient, $subject, 'success', null, $isTest);
 
                 return [
                     'success'        => true,
@@ -229,8 +257,10 @@ final class EmailScheduleService
                 ];
             }
 
-            $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
-                $recipient, $subject, 'failed', 'SMTP delivery failed', $isTest);
+            if ($isTest) {
+                $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
+                    $recipient, $subject, 'failed', 'SMTP delivery failed', true);
+            }
             return [
                 'success' => false,
                 'message' => 'Email delivery failed. Check email logs for details.',
@@ -238,8 +268,10 @@ final class EmailScheduleService
             ];
 
         } catch (\Throwable $e) {
-            $this->logEmailTest($sendDate, $reason ?? '', $timezone ?? '', '',
-                '', '', 'failed', $e->getMessage(), $isTest);
+            if ($isTest) {
+                $this->logEmailTest($sendDate, $reason ?? '', $timezone ?? '', '',
+                    '', '', 'failed', $e->getMessage(), true);
+            }
             return [
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage(),
@@ -436,7 +468,8 @@ HTML;
     }
 
     /**
-     * Self-heal: add is_test_run and simulated_date columns to email_logs if missing.
+     * Self-heal: add is_test_run, simulated_date, report_date_from, report_date_to
+     * columns to email_logs if missing.
      */
     private function ensureEmailLogsTestColumns(\PDO $db): void
     {
@@ -445,8 +478,10 @@ HTML;
         $checked = true;
 
         $needed = [
-            'is_test_run'    => "ALTER TABLE `email_logs` ADD COLUMN `is_test_run` TINYINT(1) NOT NULL DEFAULT 0 AFTER `retry_count`",
-            'simulated_date' => "ALTER TABLE `email_logs` ADD COLUMN `simulated_date` DATE DEFAULT NULL AFTER `is_test_run`",
+            'is_test_run'      => "ALTER TABLE `email_logs` ADD COLUMN `is_test_run` TINYINT(1) NOT NULL DEFAULT 0 AFTER `retry_count`",
+            'simulated_date'   => "ALTER TABLE `email_logs` ADD COLUMN `simulated_date` DATE DEFAULT NULL AFTER `is_test_run`",
+            'report_date_from' => "ALTER TABLE `email_logs` ADD COLUMN `report_date_from` DATE DEFAULT NULL COMMENT 'Period start — used to regenerate attachment on retry' AFTER `simulated_date`",
+            'report_date_to'   => "ALTER TABLE `email_logs` ADD COLUMN `report_date_to`   DATE DEFAULT NULL COMMENT 'Period end — used to regenerate attachment on retry'   AFTER `report_date_from`",
         ];
         foreach ($needed as $col => $ddl) {
             $exists = (int) $db->query(

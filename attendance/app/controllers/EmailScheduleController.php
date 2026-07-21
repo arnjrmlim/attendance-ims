@@ -46,6 +46,9 @@ final class EmailScheduleController extends BaseController
 
     /**
      * GET /email-schedule/status
+     *
+     * Returns the current schedule configuration and the CORRECT next send dates.
+     * Trigger days: 16th (first-half report) and 1st of next month (second-half report).
      */
     public function status(): void
     {
@@ -56,27 +59,60 @@ final class EmailScheduleController extends BaseController
         $timezone = $cfg->get('email_timezone', 'UTC');
         $lastSent = $cfg->get('last_email_sent_date', '');
 
-        $now            = new \DateTime('now', new \DateTimeZone($timezone));
-        $next15th       = clone $now;
-        $nextEndOfMonth = clone $now;
+        $now        = new \DateTime('now', new \DateTimeZone($timezone));
+        $today      = (int) $now->format('d');
+        $thisYear   = (int) $now->format('Y');
+        $thisMonth  = (int) $now->format('m');
 
-        $next15th->modify('first day of next month');
-        $next15th->setDate(
-            (int) $next15th->format('Y'),
-            (int) $next15th->format('m'),
-            15
-        );
-        $nextEndOfMonth->modify('last day of this month');
-        if ($nextEndOfMonth < $now) {
-            $nextEndOfMonth->modify('last day of next month');
+        // ── Next 16th (first-half trigger) ──────────────────────────────────
+        // If today is before the 16th → next 16th is this month
+        // If today is on or after the 16th → next 16th is next month
+        if ($today < 16) {
+            $next16th = new \DateTime(
+                sprintf('%04d-%02d-16', $thisYear, $thisMonth),
+                new \DateTimeZone($timezone)
+            );
+        } else {
+            $next16th = new \DateTime(
+                sprintf('%04d-%02d-16', $thisYear, $thisMonth),
+                new \DateTimeZone($timezone)
+            );
+            $next16th->modify('first day of next month');
+            $next16th->setDate(
+                (int) $next16th->format('Y'),
+                (int) $next16th->format('m'),
+                16
+            );
         }
 
+        // ── Next 1st (second-half trigger) ───────────────────────────────────
+        // Always the 1st of next month
+        $next1st = clone $now;
+        $next1st->modify('first day of next month');
+
+        // ── Build response ────────────────────────────────────────────────────
         $nextSendDates = [];
         if (in_array($schedule, ['15th', 'both'], true)) {
-            $nextSendDates[] = $next15th->format('Y-m-d') . ' (15th)';
+            $period16th = $next16th->format('F Y') . ' (1–15)';
+            $nextSendDates[] = [
+                'send_date'    => $next16th->format('Y-m-d'),
+                'label'        => $next16th->format('Y-m-d') . ' — Mid-month report',
+                'period'       => $period16th,
+            ];
         }
         if (in_array($schedule, ['end_of_month', 'both'], true)) {
-            $nextSendDates[] = $nextEndOfMonth->format('Y-m-d') . ' (End of Month)';
+            // Period covered = 16th–last day of the month BEFORE the 1st trigger
+            $prevMonth   = clone $next1st;
+            $prevMonth->modify('-1 day');
+            $prevYear    = $prevMonth->format('Y');
+            $prevMo      = $prevMonth->format('m');
+            $prevLastDay = $prevMonth->format('t');
+            $period1st   = $prevMonth->format('F Y') . " (16–{$prevLastDay})";
+            $nextSendDates[] = [
+                'send_date'    => $next1st->format('Y-m-d'),
+                'label'        => $next1st->format('Y-m-d') . ' — End-of-month report',
+                'period'       => $period1st,
+            ];
         }
 
         $this->json([
@@ -85,7 +121,7 @@ final class EmailScheduleController extends BaseController
             'last_sent_date'  => $lastSent,
             'next_send_dates' => $nextSendDates,
             'current_date'    => $now->format('Y-m-d'),
-            'current_day'     => (int) $now->format('d'),
+            'current_day'     => $today,
             'days_in_month'   => (int) $now->format('t'),
         ]);
     }

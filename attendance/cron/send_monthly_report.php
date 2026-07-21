@@ -3,14 +3,27 @@
 /**
  * Cron: send_monthly_report.php
  *
- * Generates the previous month's attendance report (CSV + HTML email body),
- * saves it locally, then sends via SMTP. If delivery fails the file is kept
- * and the failure is logged so retry_failed_emails.php can resend it.
+ * DEPRECATED — This legacy script is preserved for reference only.
  *
- * Recommended schedule (Windows Task Scheduler):
- *   Trigger  : Monthly, Day 1, 12:00 AM
- *   Action   : "C:\xampp\php\php.exe"
- *   Arguments: "C:\xampp\htdocs\attendance-ims\attendance\cron\send_monthly_report.php"
+ * The system now uses EmailScheduleService (Pipeline A) for all scheduled
+ * email reports. Pipeline A is triggered via:
+ *
+ *   Windows Task Scheduler → HTTP → EmailScheduleController::check()
+ *     → EmailScheduleService::checkAndSendScheduled()
+ *
+ * Pipeline A correctly respects:
+ *   - email_schedule  (manual / 15th / end_of_month / both)
+ *   - email_report_enabled toggle
+ *   - Duplicate prevention
+ *   - Bi-monthly periods (1–15 and 16–end)
+ *   - Timezone-aware date calculation
+ *
+ * This script (Pipeline B) is kept as a fallback reference but will EXIT
+ * immediately if Pipeline A settings indicate it should not run, preventing
+ * duplicate or unwanted sends.
+ *
+ * If you no longer need this script, delete the corresponding Windows Task
+ * Scheduler task ("IMS - Monthly Report") and this file.
  */
 
 declare(strict_types=1);
@@ -29,6 +42,28 @@ if (!cron_lock('send_monthly_report')) {
 
 $jobId = job_start('send_monthly_report');
 $cfg   = new SettingsService();
+
+// ── Guard: respect Email Settings before doing anything ─────────────────────
+$schedule       = $cfg->get('email_schedule', 'manual');
+$reportEnabled  = $cfg->get('email_report_enabled', '0');
+
+if ($schedule === 'manual') {
+    cron_log('Email schedule is set to Manual. Pipeline B will not send. Use EmailScheduleController for manual sends.');
+    job_finish($jobId, true, 'Skipped — email_schedule = manual.');
+    exit(0);
+}
+
+if ($reportEnabled !== '1') {
+    cron_log('Auto Monthly Report is disabled (email_report_enabled != 1). Exiting.');
+    job_finish($jobId, true, 'Skipped — email_report_enabled is off.');
+    exit(0);
+}
+
+// ── Guard: Pipeline A (EmailScheduleService) should handle this ─────────────
+// Pipeline B only runs if explicitly NOT using the HTTP-based cron endpoint.
+// If you are using the Task Scheduler HTTP approach, disable this task entirely.
+cron_log('WARNING: Pipeline B (send_monthly_report.php) is running. Verify you are not also running Pipeline A (email-schedule/check) for the same period — duplicate prevention only applies within each pipeline independently.');
+
 
 // Determine report period: previous month
 $year  = (int) date('Y');
@@ -114,36 +149,29 @@ try {
     /* ── Build email body ──────────────────────────────────── */
     $companyName = (string) $cfg->get('company_name', 'Company');
     $otHours     = round((int) ($stats['total_overtime_mins'] ?? 0) / 60, 1);
+    $generated   = date('Y-m-d H:i:s');
 
-    $htmlBody = <<<HTML
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><style>
-  body{font-family:Arial,sans-serif;font-size:14px;color:#172033}
-  table{border-collapse:collapse;width:100%}
-  th,td{border:1px solid #e6e8ee;padding:8px 12px;text-align:left}
-  th{background:#0f766e;color:#fff}
-  .metric{display:inline-block;padding:12px 20px;background:#f5f7fb;border:1px solid #e6e8ee;border-radius:6px;margin:4px}
-  .metric strong{display:block;font-size:22px}
-</style></head>
-<body>
-<h2>Monthly Attendance Report</h2>
-<p><strong>Company:</strong> {$companyName}<br>
-   <strong>Branch:</strong> {$branchName}<br>
-   <strong>Period:</strong> {$periodLabel} ({$dateFrom} to {$dateTo})</p>
-
-<div style="margin:16px 0">
-  <div class="metric"><strong>{$totalEmployees}</strong> Total Employees</div>
-  <div class="metric"><strong>{$stats['present']}</strong> Present Days</div>
-  <div class="metric"><strong>{$stats['late']}</strong> Late</div>
-  <div class="metric"><strong>{$stats['absent']}</strong> Absent</div>
-  <div class="metric"><strong>{$stats['on_leave']}</strong> On Leave</div>
-  <div class="metric"><strong>{$otHours}h</strong> Overtime</div>
-</div>
-
-<p>Please find the detailed CSV report attached.</p>
-<p style="color:#667085;font-size:12px">Generated automatically by Integrated Management Services, Inc. — Attendance Management Portal on HTML;
-    $htmlBody .= date('Y-m-d H:i:s') . '.</p></body></html>';
+    $htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
+        . 'body{font-family:Arial,sans-serif;font-size:14px;color:#172033}'
+        . 'th{background:#0f766e;color:#fff}'
+        . '.metric{display:inline-block;padding:12px 20px;background:#f5f7fb;border:1px solid #e6e8ee;border-radius:6px;margin:4px}'
+        . '.metric strong{display:block;font-size:22px}'
+        . '</style></head><body>'
+        . '<h2>Monthly Attendance Report</h2>'
+        . '<p><strong>Company:</strong> ' . htmlspecialchars($companyName) . '<br>'
+        . '<strong>Branch:</strong> ' . htmlspecialchars($branchName) . '<br>'
+        . '<strong>Period:</strong> ' . htmlspecialchars($periodLabel) . ' (' . $dateFrom . ' to ' . $dateTo . ')</p>'
+        . '<div style="margin:16px 0">'
+        . '<div class="metric"><strong>' . $totalEmployees . '</strong> Total Employees</div>'
+        . '<div class="metric"><strong>' . (int)($stats['present'] ?? 0) . '</strong> Present Days</div>'
+        . '<div class="metric"><strong>' . (int)($stats['late'] ?? 0) . '</strong> Late</div>'
+        . '<div class="metric"><strong>' . (int)($stats['absent'] ?? 0) . '</strong> Absent</div>'
+        . '<div class="metric"><strong>' . (int)($stats['on_leave'] ?? 0) . '</strong> On Leave</div>'
+        . '<div class="metric"><strong>' . $otHours . 'h</strong> Overtime</div>'
+        . '</div>'
+        . '<p>Please find the detailed CSV report attached.</p>'
+        . '<p style="color:#667085;font-size:12px">Generated automatically by Integrated Management Services, Inc. on ' . $generated . '.</p>'
+        . '</body></html>';
 
     /* ── Send ──────────────────────────────────────────────── */
     $recipient  = (string) $cfg->get('email_report_recipient', '');

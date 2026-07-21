@@ -124,11 +124,11 @@ function sv(array $cfg, string $key, string $default = ''): string {
                         <label class="form-label">Schedule</label>
                         <select class="form-select" name="email_schedule">
                             <option value="manual" <?= ($cfg['email_schedule'] ?? 'manual') === 'manual' ? 'selected' : '' ?>>Manual Only</option>
-                            <option value="15th" <?= ($cfg['email_schedule'] ?? '') === '15th' ? 'selected' : '' ?>>Every 15th of the Month</option>
-                            <option value="end_of_month" <?= ($cfg['email_schedule'] ?? '') === 'end_of_month' ? 'selected' : '' ?>>End of Month</option>
-                            <option value="both" <?= ($cfg['email_schedule'] ?? '') === 'both' ? 'selected' : '' ?>>Both (15th & End of Month)</option>
+                            <option value="15th" <?= ($cfg['email_schedule'] ?? '') === '15th' ? 'selected' : '' ?>>Mid-month Report (sent every 16th, covers 1st–15th)</option>
+                            <option value="end_of_month" <?= ($cfg['email_schedule'] ?? '') === 'end_of_month' ? 'selected' : '' ?>>End-of-month Report (sent every 1st, covers 16th–end)</option>
+                            <option value="both" <?= ($cfg['email_schedule'] ?? '') === 'both' ? 'selected' : '' ?>>Both Reports (16th and 1st of next month)</option>
                         </select>
-                        <small class="text-muted">Automatic email sending schedule for attendance reports</small>
+                        <small class="text-muted">Emails are sent on the <strong>16th</strong> (1st–15th report) and/or the <strong>1st</strong> of the following month (16th–end report)</small>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Timezone</label>
