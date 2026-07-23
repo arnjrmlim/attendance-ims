@@ -274,8 +274,10 @@ final class EmailService
      */
     public function sendTest(string $to): array
     {
-        $subject = '[IMS] Test Email — ' . date('Y-m-d H:i:s');
-        $body    = '<p>This is a test email from Integrated Management Services, Inc. — Attendance Management Portal.</p>'
+        $companyName = (new SettingsService())->getCompanyName();
+        $companyAbbreviation = (new SettingsService())->getCompanyAbbreviation();
+        $subject = '[' . $companyAbbreviation . '] Test Email — ' . date('Y-m-d H:i:s');
+        $body    = '<p>This is a test email from ' . e($companyName) . ' — Attendance Management Portal.</p>'
                  . '<p>If you received this, your SMTP settings are configured correctly.</p>';
 
         $ok = $this->deliverSmtp($to, $subject, $body, null);
@@ -364,7 +366,8 @@ final class EmailService
 
         try {
             $boundary   = '==Multipart_' . bin2hex(random_bytes(8));
-            $messageId  = '<' . uuid_v4() . '@ims>';
+            $companyAbbreviation = (new SettingsService())->getCompanyAbbreviation();
+            $messageId  = '<' . uuid_v4() . '@' . strtolower($companyAbbreviation) . '>';
             $date       = date('r');
             $fromHeader = '"' . addslashes($fromName) . '" <' . $fromEmail . '>';
 

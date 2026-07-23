@@ -4,16 +4,19 @@
  */
 $groupLabels = [
     'company'     => ['icon' => 'bi-building',       'label' => 'Company'],
-    'attendance'  => ['icon' => 'bi-clock-history',   'label' => 'Attendance Rules'],
     'system'      => ['icon' => 'bi-gear',             'label' => 'System'],
     'security'    => ['icon' => 'bi-shield-lock',      'label' => 'Security'],
-    'backup'      => ['icon' => 'bi-database-fill-down','label'=> 'Backup'],
-    'maintenance' => ['icon' => 'bi-tools',            'label' => 'Maintenance'],
+    'reports'     => ['icon' => 'bi-file-earmark-bar-graph', 'label' => 'Reports'],
 ];
 $boolKeys = [
-    'backup_enabled','backup_daily','backup_weekly','backup_monthly','backup_compress',
-    'late_deduction','method_pin','method_qr','method_rfid','method_manual',
-    'email_report_enabled',
+    'maintenance_mode',
+    'password_require_upper',
+    'password_require_number',
+    'password_require_special',
+    'report_show_logo',
+    'report_show_address',
+    'report_show_generated_by',
+    'report_show_timestamp',
 ];
 // Remove email group from grouped (managed by EmailSettingsController)
 unset($grouped['email']);
@@ -75,7 +78,10 @@ unset($grouped['email']);
                                     <label class="form-label"><?= e($label) ?></label>
                                     <?php if ($val): ?>
                                         <div class="mb-1">
-                                            <img src="<?= url($val) ?>" alt="Logo" style="max-height:40px">
+                                            <?php
+                                            $logoPath = str_starts_with($val, 'uploads/') ? $val : 'uploads/' . $val;
+                                            ?>
+                                            <img src="<?= asset_url($logoPath) ?>" alt="Logo" style="max-height:40px">
                                         </div>
                                     <?php endif; ?>
                                     <input type="file" class="form-control form-control-sm"

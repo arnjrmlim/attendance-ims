@@ -53,7 +53,7 @@ final class SystemController extends BaseController
         $post   = $_POST;
 
         // Groups the admin can modify on this page (NOT email — handled by EmailSettingsController)
-        $allowedGroups = ['company', 'attendance', 'system', 'security', 'backup', 'maintenance'];
+        $allowedGroups = ['company', 'system', 'security', 'reports'];
 
         // Fetch all keys belonging to allowed groups
         $db     = Database::connection();
@@ -72,9 +72,14 @@ final class SystemController extends BaseController
 
         // Boolean checkboxes default to 0 when unchecked
         $boolKeys = [
-            'backup_enabled','backup_daily','backup_weekly','backup_monthly',
-            'backup_compress','late_deduction','method_pin','method_qr',
-            'method_rfid','method_manual',
+            'maintenance_mode',
+            'password_require_upper',
+            'password_require_number',
+            'password_require_special',
+            'report_show_logo',
+            'report_show_address',
+            'report_show_generated_by',
+            'report_show_timestamp',
         ];
         foreach ($boolKeys as $bk) {
             if (array_key_exists($bk, $post) || in_array($bk, array_keys($data), true)) {

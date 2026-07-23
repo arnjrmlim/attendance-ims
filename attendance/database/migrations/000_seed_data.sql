@@ -237,16 +237,10 @@ INSERT INTO `settings` (`key`, `value`, `type`, `group`, `description`) VALUES
 ('branch_id',              'b1000000-0000-0000-0000-000000000001', 'string', 'general', 'Current branch UUID'),
 -- Company
 ('company_name',           'My Company',                  'string',  'company',  'Company name'),
-('company_branch',         'Main Branch',                 'string',  'company',  'Branch name'),
+('company_abbreviation',  'IMS',                         'string',  'company',  'Company abbreviation (short name)'),
 ('company_logo',           '',                            'string',  'company',  'Logo path relative to public/'),
 -- System
 ('timezone',              'Asia/Manila',                 'string',  'system',   'System timezone'),
-('date_format',           'F j, Y',                      'string',  'system',   'PHP date format for display'),
-('time_format',           'h:i A',                       'string',  'system',   'PHP time format for display'),
--- Security
-('session_timeout',       '480',                         'integer', 'security', 'Session timeout in minutes (480 = 8h)'),
-('max_login_attempts',   '5',                           'integer', 'security', 'Max failed login attempts before lockout'),
-('lockout_minutes',       '30',                          'integer', 'security', 'Account lockout duration in minutes'),
 -- Attendance
 ('grace_period_minutes',  '15',                          'integer', 'attendance','Grace period in minutes before marking late'),
 ('work_hours_per_day',    '8',                           'decimal', 'attendance','Standard working hours per day'),

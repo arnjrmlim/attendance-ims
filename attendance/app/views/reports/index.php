@@ -10,9 +10,14 @@
     <div class="col-md-2"><input class="form-control" type="date" name="end_date" value="<?= e($_GET['end_date'] ?? '') ?>"></div>
     <div class="col-md-2"><button class="btn btn-outline-primary w-100">Generate</button></div>
 </form>
+<?php
+$cfg = new \App\Services\SettingsService();
+$companyLogo = $cfg->getCompanyLogo();
+$companyName = $cfg->getCompanyName();
+?>
 <div class="panel p-4">
     <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
-        <div class="d-flex align-items-center gap-3"><img src="<?= asset_url('assets/img/logo.svg') ?>" width="52" height="52" alt="IMS"><div><h2 class="h4 mb-0"><?= e(config('name')) ?></h2><div class="text-muted">Generated <?= e(date('Y-m-d H:i')) ?> by <?= e(current_user()['username']) ?></div><div class="text-muted">Period: <?= e($period) ?></div></div></div>
+        <div class="d-flex align-items-center gap-3"><img src="<?= asset_url($companyLogo) ?>" width="52" height="52" alt="IMS"><div><h2 class="h4 mb-0"><?= e($companyName) ?></h2><div class="text-muted">Generated <?= e(date('Y-m-d H:i')) ?> by <?= e(current_user()['username']) ?></div><div class="text-muted">Period: <?= e($period) ?></div></div></div>
         <div class="text-end text-muted">Page 1</div>
     </div>
     <div class="row g-3 mb-3"><?php foreach ($totals as $label => $value): ?><div class="col-sm-4 col-lg-2"><div class="metric-card"><div class="text-muted text-capitalize"><?= e($label) ?></div><div class="metric-value"><?= (int) $value ?></div></div></div><?php endforeach; ?></div>

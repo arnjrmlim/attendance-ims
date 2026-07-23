@@ -1,9 +1,13 @@
 <?php
 
 $user = current_user();
-$title = $title ?? config('name');
+$cfg = new \App\Services\SettingsService();
+$title = $title ?? $cfg->getCompanyName();
 $flashSuccess = flash('success');
 $flashError = flash('error');
+$companyLogo = $cfg->getCompanyLogo();
+$companyName = $cfg->getCompanyName();
+$companyAbbreviation = $cfg->getCompanyAbbreviation();
 ?>
 <!doctype html>
 <html lang="en">
@@ -21,9 +25,13 @@ $flashError = flash('error');
 <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
     <div class="container-fluid">
         <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="<?= url('dashboard') ?>">
-            <img src="<?= asset_url('assets/img/logo.svg') ?>" alt="IMS" width="32" height="32">
-            IMS
+            <img src="<?= asset_url($companyLogo) ?>" alt="<?= e($companyAbbreviation) ?>" width="48" height="48" class="rounded-circle">
+            <div class="d-flex flex-column">
+                <span class="fw-bold" style="font-size: 31px; line-height: 1; letter-spacing: -0.4px;"><?= e($companyAbbreviation) ?></span>
+                <span style="font-size: 12px; color: #6B7280; font-weight: 500; line-height: 1.2; margin-top: 2px;">Attendance System</span>
+            </div>
         </a>
+        <div class="vr d-none d-lg-block" style="height: 75px; opacity: 0.4;"></div>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -52,7 +60,7 @@ $flashError = flash('error');
                 <?php endif; ?>
                 <?php if (has_role('administrator')): ?>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Admin</a>
+                    <a class="nav-link dropdown-toggle d-flex flex-column align-items-center gap-1" href="#" role="button" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Admin</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="<?= url('branches') ?>"><i class="bi bi-building me-1"></i> Branches</a></li>
                         <li><a class="dropdown-item" href="<?= url('departments') ?>"><i class="bi bi-diagram-3 me-1"></i> Departments</a></li>

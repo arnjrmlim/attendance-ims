@@ -124,13 +124,13 @@ try {
     if (!is_dir($reportsDir)) {
         mkdir($reportsDir, 0775, true);
     }
-    $branchName = (string) $cfg->get('company_branch', 'Branch');
+    $companyName = (string) $cfg->get('company_name', 'My Company');
     $safePeriod = str_replace(' ', '_', $periodLabel);
     $csvFile    = $reportsDir . "/attendance_{$safePeriod}.csv";
 
     $fh = fopen($csvFile, 'w');
     fputcsv($fh, ['Attendance Report — ' . $periodLabel]);
-    fputcsv($fh, ['Branch:', $branchName]);
+    fputcsv($fh, ['Company:', $companyName]);
     fputcsv($fh, ['Period:', "{$dateFrom} to {$dateTo}"]);
     fputcsv($fh, []);
     fputcsv($fh, ['Employee #', 'Name', 'Department',

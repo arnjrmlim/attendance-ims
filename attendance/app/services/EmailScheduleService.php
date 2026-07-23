@@ -186,14 +186,15 @@ final class EmailScheduleService
                 }
             }
 
-            $subject   = 'IMS – Attendance Report (' . $this->periodShortLabel($dateFrom, $dateTo) . ')';
+            $companyAbbreviation = (string) $this->cfg->get('company_abbreviation', 'IMS');
+            $subject   = $companyAbbreviation . ' – Attendance Report (' . $this->periodShortLabel($dateFrom, $dateTo) . ')';
             $periodKey = $this->resolvePeriodKey($sendDate);
 
             // ── DRY RUN: stop before sending ─────────────────────────────
             if ($dryRun) {
                 // Dry-run test logs are fine to write — not a real send
                 $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
-                    $recipient, $subject, 'dry_run', null, true);
+                    $recipient, $subject, 'dry_run', null, true, $companyAbbreviation);
                 if ($attachmentPath && is_file($attachmentPath)) {
                     @unlink($attachmentPath);
                 }
@@ -238,7 +239,7 @@ final class EmailScheduleService
                 } else {
                     // Test run: annotate the email_logs row created by EmailService
                     $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
-                        $recipient, $subject, 'success', null, true);
+                        $recipient, $subject, 'success', null, true, $companyAbbreviation);
                 }
 
                 return [
@@ -259,7 +260,7 @@ final class EmailScheduleService
 
             if ($isTest) {
                 $this->logEmailTest($sendDate, $reason, $timezone, $periodLabel,
-                    $recipient, $subject, 'failed', 'SMTP delivery failed', true);
+                    $recipient, $subject, 'failed', 'SMTP delivery failed', true, $companyAbbreviation);
             }
             return [
                 'success' => false,
@@ -270,7 +271,7 @@ final class EmailScheduleService
         } catch (\Throwable $e) {
             if ($isTest) {
                 $this->logEmailTest($sendDate, $reason ?? '', $timezone ?? '', '',
-                    '', '', 'failed', $e->getMessage(), true);
+                    '', '', 'failed', $e->getMessage(), true, $companyAbbreviation);
             }
             return [
                 'success' => false,
@@ -310,8 +311,9 @@ final class EmailScheduleService
         $stmt->execute([$dateFrom, $dateTo]);
         $st = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        $companyName = (string) $this->cfg->get('company_name', 'IMS');
-        $appName     = (string) $this->cfg->get('app_name', 'Integrated Management Services, Inc.');
+        $companyName = (string) $this->cfg->get('company_name', 'My Company');
+        $companyAbbreviation = (string) $this->cfg->get('company_abbreviation', 'IMS');
+        $appName     = $companyName;
         $tz          = $this->formatTimezone($timezone);
         $esc         = static fn($v) => htmlspecialchars((string) ($v ?? ''));
         $shortLabel  = $this->periodShortLabel($dateFrom, $dateTo);
@@ -422,7 +424,8 @@ HTML;
         string  $subject,
         string  $status,
         ?string $error,
-        bool    $isTest
+        bool    $isTest,
+        string  $companyAbbreviation = 'IMS'
     ): void {
         try {
             $db = Database::connection();
@@ -441,7 +444,7 @@ HTML;
             )->execute([
                 $id,
                 $recipient ?: '(none)',
-                $subject   ?: '[IMS] Attendance Report',
+                $subject   ?: '[' . $companyAbbreviation . '] Attendance Report',
                 $periodLabel,
                 "Trigger: {$reason} | TZ: {$timezone} | Date: {$sendDate}" . ($isTest ? ' | TEST RUN' : ''),
                 $status === 'dry_run' ? 'queued' : ($status === 'success' ? 'sent' : 'failed'),

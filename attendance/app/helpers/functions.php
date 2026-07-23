@@ -197,7 +197,7 @@ if (!function_exists('save_upload')) {
             throw new RuntimeException('Unsupported attachment type.');
         }
 
-        $uploadDir = rtrim((string) config('upload_path'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'phase2';
+        $uploadDir = rtrim((string) config('upload_path'), DIRECTORY_SEPARATOR);
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0775, true);
         }
@@ -208,7 +208,7 @@ if (!function_exists('save_upload')) {
             throw new RuntimeException('Unable to store attachment.');
         }
 
-        return 'phase2/' . $name;
+        return $name;
     }
 }
 

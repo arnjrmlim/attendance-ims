@@ -115,4 +115,50 @@ final class SettingsService
     {
         self::$cache = null;
     }
+
+    /* ── Company Helpers ────────────────────────────────────────── */
+
+    /** Get company name with fallback. */
+    public function getCompanyName(): string
+    {
+        return (string) $this->get('company_name', 'My Company');
+    }
+
+    /** Get company abbreviation with fallback. */
+    public function getCompanyAbbreviation(): string
+    {
+        return (string) $this->get('company_abbreviation', 'IMS');
+    }
+
+    /** Get company logo path with fallback. */
+    public function getCompanyLogo(): string
+    {
+        $logo = (string) $this->get('company_logo', '');
+        if ($logo !== '' && !str_starts_with($logo, 'http')) {
+            // If it's a relative path from uploads, prepend uploads/
+            if (!str_starts_with($logo, 'uploads/')) {
+                $logo = 'uploads/' . $logo;
+            }
+            return $logo;
+        }
+        return $logo !== '' ? $logo : 'assets/img/logo.svg';
+    }
+
+    /** Get company address. */
+    public function getCompanyAddress(): string
+    {
+        return (string) $this->get('company_address', '');
+    }
+
+    /** Get company contact number. */
+    public function getCompanyContact(): string
+    {
+        return (string) $this->get('company_contact', '');
+    }
+
+    /** Get company email. */
+    public function getCompanyEmail(): string
+    {
+        return (string) $this->get('company_email', '');
+    }
 }
