@@ -13,13 +13,21 @@ final class AttendanceMonitoringController extends BaseController
     {
         require_role(['administrator', 'hr']);
         $directory = new DirectoryService();
+        
+        // Apply default date range if not provided by user
+        $filters = $_GET;
+        if (empty($filters['start_date']) && empty($filters['end_date'])) {
+            $filters['start_date'] = date('Y-m-01'); // First day of current month
+            $filters['end_date'] = date('Y-m-d');     // Today
+        }
+        
         $this->render('attendance/monitoring', [
             'title' => 'Attendance Monitoring',
-            'rows' => (new AttendanceService())->monitor($_GET),
-            'employees' => $directory->employees(),
+            'rows' => (new AttendanceService())->monitor($filters),
             'departments' => $directory->departments(),
             'branches' => $directory->branches(),
             'shifts' => $directory->shifts(),
+            'filters' => $filters,
         ]);
     }
 

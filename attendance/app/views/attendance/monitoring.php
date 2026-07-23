@@ -35,22 +35,11 @@ $statusBadge = [
 <!-- ── Filter bar ────────────────────────────────────────────────── -->
 <form class="panel p-3 mb-3" method="get">
     <div class="row g-2 align-items-end">
-        <div class="col-md-2">
+        <div class="col-md-3">
             <input class="form-control form-control-sm" name="q"
                    value="<?= e($_GET['q'] ?? '') ?>" placeholder="Search employee…">
         </div>
-        <div class="col-md-2">
-            <select class="form-select form-select-sm" name="employee_id">
-                <option value="">All employees</option>
-                <?php foreach ($employees as $emp): ?>
-                    <option value="<?= e($emp['id']) ?>"
-                        <?= ($_GET['employee_id'] ?? '') === $emp['id'] ? 'selected' : '' ?>>
-                        <?= e($emp['name']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
             <select class="form-select form-select-sm" name="department_id">
                 <option value="">All departments</option>
                 <?php foreach ($departments as $dept): ?>
@@ -61,7 +50,7 @@ $statusBadge = [
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
             <select class="form-select form-select-sm" name="branch_id">
                 <option value="">All branches</option>
                 <?php foreach ($branches as $branch): ?>
@@ -74,11 +63,11 @@ $statusBadge = [
         </div>
         <div class="col-md-1">
             <input class="form-control form-control-sm" type="date" name="start_date"
-                   value="<?= e($_GET['start_date'] ?? '') ?>">
+                   value="<?= e($filters['start_date'] ?? '') ?>">
         </div>
         <div class="col-md-1">
             <input class="form-control form-control-sm" type="date" name="end_date"
-                   value="<?= e($_GET['end_date'] ?? '') ?>">
+                   value="<?= e($filters['end_date'] ?? '') ?>">
         </div>
         <div class="col-md-1">
             <select class="form-select form-select-sm" name="status">
@@ -229,10 +218,7 @@ $statusBadge = [
 </div>
 
 <script>
-// Real-time monitoring data refresh
-let refreshInterval = null;
-const REFRESH_INTERVAL_MS = 30000; // 30 seconds
-
+// Real-time monitoring data refresh (manual only - no automatic polling)
 function refreshMonitoringData() {
     const url = new URL(window.location.href);
     const params = new URLSearchParams(url.search);
@@ -351,25 +337,13 @@ function getStatusLabel(status) {
     return status ? status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ') : '—';
 }
 
-// Start polling when page loads
+// Manual refresh only - no automatic polling
 document.addEventListener('DOMContentLoaded', function() {
-    refreshInterval = setInterval(refreshMonitoringData, REFRESH_INTERVAL_MS);
-    
     // Trigger immediate refresh after leave approval/reject actions
     document.querySelectorAll('form[action*="/leaves/approve"], form[action*="/leaves/reject"]').forEach(form => {
         form.addEventListener('submit', function() {
             setTimeout(refreshMonitoringData, 1000); // Refresh 1 second after action
         });
     });
-});
-
-// Stop polling when page is hidden to save resources
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        clearInterval(refreshInterval);
-    } else {
-        refreshInterval = setInterval(refreshMonitoringData, REFRESH_INTERVAL_MS);
-        refreshMonitoringData(); // Refresh immediately when page becomes visible
-    }
 });
 </script>

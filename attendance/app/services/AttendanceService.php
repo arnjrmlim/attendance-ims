@@ -62,12 +62,6 @@ final class AttendanceService
         // Build WHERE conditions
         $conditions = ["e.status = 'active'"];
 
-        // Employee filter
-        if (!empty($filters['employee_id'])) {
-            $conditions[] = 'e.id = :employee_id';
-            $params['employee_id'] = $filters['employee_id'];
-        }
-
         // Department filter
         if (!empty($filters['department_id'])) {
             $conditions[] = 'e.department_id = :department_id';
@@ -83,28 +77,69 @@ final class AttendanceService
         // Search filter
         if (!empty($filters['q'])) {
             $searchValue = '%' . $filters['q'] . '%';
-            $conditions[] = '(e.employee_number LIKE :search OR e.first_name LIKE :search OR e.last_name LIKE :search)';
-            $params['search'] = $searchValue;
+            $conditions[] = '(e.employee_number LIKE :search1 OR e.first_name LIKE :search2 OR e.last_name LIKE :search3)';
+            $params['search1'] = $searchValue;
+            $params['search2'] = $searchValue;
+            $params['search3'] = $searchValue;
         }
 
-        // Leave type filter
+        // Status filter - will be applied separately to each UNION part
+        $attendanceConditions = $conditions;
+        $leaveConditions = $conditions;
+        
+        // Duplicate search parameters for leave part to avoid parameter conflicts
+        if (!empty($filters['q'])) {
+            $params['search4'] = $searchValue;
+            $params['search5'] = $searchValue;
+            $params['search6'] = $searchValue;
+            $leaveConditions = array_map(function($cond) {
+                $cond = str_replace(':search1', ':search4', $cond);
+                $cond = str_replace(':search2', ':search5', $cond);
+                $cond = str_replace(':search3', ':search6', $cond);
+                return $cond;
+            }, $leaveConditions);
+        }
+        
+        // Duplicate department_id parameter for leave part
+        if (!empty($filters['department_id'])) {
+            $params['department_id_leave'] = $filters['department_id'];
+            $leaveConditions = array_map(function($cond) {
+                return str_replace(':department_id', ':department_id_leave', $cond);
+            }, $leaveConditions);
+        }
+        
+        // Duplicate branch_id parameter for leave part
+        if (!empty($filters['branch_id'])) {
+            $params['branch_id_leave'] = $filters['branch_id'];
+            $leaveConditions = array_map(function($cond) {
+                return str_replace(':branch_id', ':branch_id_leave', $cond);
+            }, $leaveConditions);
+        }
+        
+        // Leave type filter - only applies to leave part
         if (!empty($filters['leave_type'])) {
-            $conditions[] = 'lr.leave_type = :leave_type';
+            $leaveConditions[] = 'lr.leave_type = :leave_type';
             $params['leave_type'] = $filters['leave_type'];
+            // Exclude attendance records when filtering by leave type
+            $attendanceConditions[] = '1=0';
         }
-
-        // Status filter
+        
         if (!empty($filters['status'])) {
             if ($filters['status'] === 'leave') {
-                $conditions[] = 'lr.status = :leave_status';
+                // For leave filter, exclude attendance records
+                $attendanceConditions[] = '1=0'; // No attendance records
+                $leaveConditions[] = 'lr.status = :leave_status';
                 $params['leave_status'] = 'Approved';
             } else {
-                $conditions[] = 's.day_status = :status';
+                // For attendance status filter, exclude leave records
+                $attendanceConditions[] = 's.day_status = :status';
                 $params['status'] = $filters['status'];
+                $leaveConditions[] = '1=0'; // No leave records
             }
         }
 
-        // Build the main SQL query
+        // Build the main SQL query using UNION ALL to separate attendance and leave records
+        // This ensures one row per employee per date instead of collapsing into one row per employee
         $sql = "SELECT
                     e.id AS employee_id,
                     e.employee_number,
@@ -112,12 +147,14 @@ final class AttendanceService
                     e.middle_name,
                     e.last_name,
                     CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                    e.last_name AS sort_last_name,
+                    e.first_name AS sort_first_name,
                     d.name AS department_name,
                     b.name AS branch_name,
                     sh.name AS shift_name,
                     s.id,
                     s.attendance_date,
-                    COALESCE(s.attendance_date, lr.start_date) AS display_date,
+                    s.attendance_date AS display_date,
                     s.time_in,
                     {$breakOutExpr},
                     {$breakInExpr},
@@ -132,6 +169,58 @@ final class AttendanceService
                     s.is_late,
                     s.is_absent,
                     s.day_status,
+                    NULL AS leave_id,
+                    NULL AS leave_type,
+                    NULL AS leave_start_date,
+                    NULL AS leave_end_date,
+                    NULL AS leave_duration,
+                    NULL AS leave_status,
+                    NULL AS leave_approval_date,
+                    s.day_status AS computed_status,
+                    'attendance' AS row_source
+                FROM employees e
+                INNER JOIN attendance_summary s ON s.employee_id = e.id
+                LEFT JOIN departments d ON d.id = e.department_id
+                LEFT JOIN branches b ON b.id = e.branch_id
+                LEFT JOIN shifts sh ON sh.id = e.shift_id
+                WHERE " . implode(' AND ', $attendanceConditions);
+
+        // Add date filter for attendance
+        if ($hasDateFilter) {
+            $sql .= " AND s.attendance_date BETWEEN :attendance_start_date AND :attendance_end_date";
+        }
+
+        $sql .= "
+                UNION ALL
+                SELECT
+                    e.id AS employee_id,
+                    e.employee_number,
+                    e.first_name,
+                    e.middle_name,
+                    e.last_name,
+                    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                    e.last_name AS sort_last_name,
+                    e.first_name AS sort_first_name,
+                    d.name AS department_name,
+                    b.name AS branch_name,
+                    sh.name AS shift_name,
+                    NULL AS id,
+                    lr.start_date AS attendance_date,
+                    lr.start_date AS display_date,
+                    NULL AS time_in,
+                    NULL AS break_out,
+                    NULL AS break_in,
+                    NULL AS time_out,
+                    NULL AS overtime_in,
+                    NULL AS overtime_out,
+                    NULL AS total_hours,
+                    0 AS break_minutes,
+                    NULL AS late_minutes,
+                    NULL AS undertime_minutes,
+                    NULL AS overtime_minutes,
+                    NULL AS is_late,
+                    NULL AS is_absent,
+                    'leave' AS day_status,
                     lr.id AS leave_id,
                     lr.leave_type AS leave_type,
                     lr.start_date AS leave_start_date,
@@ -139,31 +228,21 @@ final class AttendanceService
                     lr.number_of_days AS leave_duration,
                     lr.status AS leave_status,
                     lr.approval_date AS leave_approval_date,
-                    CASE 
-                        WHEN lr.id IS NOT NULL THEN 'leave'
-                        ELSE s.day_status
-                    END AS computed_status
+                    'leave' AS computed_status,
+                    'leave' AS row_source
                 FROM employees e
-                LEFT JOIN attendance_summary s ON s.employee_id = e.id";
-
-        // Add date filter to attendance join only if dates are provided
-        if ($hasDateFilter) {
-            $sql .= " AND s.attendance_date BETWEEN :attendance_start_date AND :attendance_end_date";
-        }
-
-        $sql .= " LEFT JOIN departments d ON d.id = e.department_id
+                INNER JOIN leave_requests lr ON lr.employee_id = e.id AND lr.status = 'Approved'
+                LEFT JOIN departments d ON d.id = e.department_id
                 LEFT JOIN branches b ON b.id = e.branch_id
                 LEFT JOIN shifts sh ON sh.id = e.shift_id
-                LEFT JOIN leave_requests lr ON lr.employee_id = e.id AND lr.status = 'Approved'";
+                WHERE " . implode(' AND ', $leaveConditions);
 
-        // Add date filter to leave join only if dates are provided
+        // Add date filter for leave
         if ($hasDateFilter) {
             $sql .= " AND lr.start_date <= :leave_end_date AND lr.end_date >= :leave_start_date";
         }
 
-        $sql .= " WHERE " . implode(' AND ', $conditions) . "
-                    AND (s.id IS NOT NULL OR lr.id IS NOT NULL)
-                ORDER BY s.attendance_date DESC, e.last_name ASC, e.first_name ASC";
+        $sql .= " ORDER BY display_date DESC, sort_last_name ASC, sort_first_name ASC";
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
