@@ -57,7 +57,10 @@ final class EmployeeController extends BaseController
             'shifts' => $this->directory->shifts(),
             'roles' => $this->directory->roles(),
             'supervisors' => $this->service->list([], 1, 1000)['data'],
+            'old' => $_SESSION['old_input'] ?? [],
         ]);
+        
+        unset($_SESSION['old_input']);
     }
 
     /**
@@ -101,6 +104,7 @@ final class EmployeeController extends BaseController
             
             redirect('employees/show?id=' . $id);
         } catch (Throwable $exception) {
+            $_SESSION['old_input'] = $_POST;
             flash('error', $exception->getMessage());
             redirect('employees/create');
         }
