@@ -19,7 +19,6 @@ final class ReportController extends BaseController
             'title' => 'Reports',
             'rows' => $rows,
             'totals' => (new ReportService())->totals($rows),
-            'employees' => $directory->employees(),
             'departments' => $directory->departments(),
             'branches' => $directory->branches(),
             'shifts' => $directory->shifts(),

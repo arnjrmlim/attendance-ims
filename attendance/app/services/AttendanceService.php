@@ -77,25 +77,28 @@ final class AttendanceService
         // Search filter
         if (!empty($filters['q'])) {
             $searchValue = '%' . $filters['q'] . '%';
-            $conditions[] = '(e.employee_number LIKE :search1 OR e.first_name LIKE :search2 OR e.last_name LIKE :search3)';
+            $conditions[] = '(e.employee_number LIKE :search1 OR e.first_name LIKE :search2 OR e.last_name LIKE :search3 OR CONCAT(e.first_name, " ", e.last_name) LIKE :search4)';
             $params['search1'] = $searchValue;
             $params['search2'] = $searchValue;
             $params['search3'] = $searchValue;
+            $params['search4'] = $searchValue;
         }
 
         // Status filter - will be applied separately to each UNION part
         $attendanceConditions = $conditions;
         $leaveConditions = $conditions;
-        
+
         // Duplicate search parameters for leave part to avoid parameter conflicts
         if (!empty($filters['q'])) {
-            $params['search4'] = $searchValue;
             $params['search5'] = $searchValue;
             $params['search6'] = $searchValue;
+            $params['search7'] = $searchValue;
+            $params['search8'] = $searchValue;
             $leaveConditions = array_map(function($cond) {
-                $cond = str_replace(':search1', ':search4', $cond);
-                $cond = str_replace(':search2', ':search5', $cond);
-                $cond = str_replace(':search3', ':search6', $cond);
+                $cond = str_replace(':search1', ':search5', $cond);
+                $cond = str_replace(':search2', ':search6', $cond);
+                $cond = str_replace(':search3', ':search7', $cond);
+                $cond = str_replace(':search4', ':search8', $cond);
                 return $cond;
             }, $leaveConditions);
         }
