@@ -27,7 +27,7 @@ $companyAbbreviation = $cfg->getCompanyAbbreviation();
         <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="<?= url('dashboard') ?>">
             <img src="<?= asset_url($companyLogo) ?>" alt="<?= e($companyAbbreviation) ?>" width="48" height="48" class="rounded-circle">
             <div class="d-flex flex-column">
-                <span class="fw-bold" style="font-size: 31px; line-height: 1; letter-spacing: -0.4px;"><?= e($companyAbbreviation) ?></span>
+                <span class="fw-bold" style="font-size: 31px; line-height: 1; letter-spacing: -0.4px; font-family: 'Hoefler Text', serif; color: #292A66;"><?= e($companyAbbreviation) ?></span>
                 <span style="font-size: 12px; color: #6B7280; font-weight: 500; line-height: 1.2; margin-top: 2px;">Attendance System</span>
             </div>
         </a>
