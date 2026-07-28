@@ -31,8 +31,11 @@ final class DepartmentService
 
         // Search by name or code
         if (!empty($filters['q'])) {
-            $where[] = '(d.name LIKE :q OR d.code LIKE :q OR d.location LIKE :q)';
-            $params['q'] = '%' . $filters['q'] . '%';
+            $where[] = '(d.name LIKE :q1 OR d.code LIKE :q2 OR d.location LIKE :q3)';
+            $searchValue = '%' . $filters['q'] . '%';
+            $params['q1'] = $searchValue;
+            $params['q2'] = $searchValue;
+            $params['q3'] = $searchValue;
         }
 
         // Filter by branch

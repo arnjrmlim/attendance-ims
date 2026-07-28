@@ -123,8 +123,10 @@ final class ShiftService
         $params = [];
 
         if (!empty($filters['q'])) {
-            $where[]    = "(s.name LIKE :q OR s.description LIKE :q)";
-            $params['q'] = '%' . $filters['q'] . '%';
+            $where[]    = "(s.name LIKE :q1 OR s.description LIKE :q2)";
+            $searchValue = '%' . $filters['q'] . '%';
+            $params['q1'] = $searchValue;
+            $params['q2'] = $searchValue;
         }
 
         if (!empty($filters['status'])) {

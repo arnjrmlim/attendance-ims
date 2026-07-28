@@ -24,8 +24,12 @@ final class CorrectionService
             $params['status'] = $filters['status'];
         }
         if (!empty($filters['q'])) {
-            $where[] = "(e.employee_number LIKE :q OR e.first_name LIKE :q OR e.last_name LIKE :q OR ac.reason LIKE :q)";
-            $params['q'] = '%' . $filters['q'] . '%';
+            $where[] = "(e.employee_number LIKE :q1 OR e.first_name LIKE :q2 OR e.last_name LIKE :q3 OR ac.reason LIKE :q4)";
+            $searchValue = '%' . $filters['q'] . '%';
+            $params['q1'] = $searchValue;
+            $params['q2'] = $searchValue;
+            $params['q3'] = $searchValue;
+            $params['q4'] = $searchValue;
         }
         $sql = 'SELECT ac.*, e.employee_number, CONCAT(e.first_name, " ", e.last_name) AS employee_name
                 FROM attendance_corrections ac INNER JOIN employees e ON e.id = ac.employee_id';

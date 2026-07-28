@@ -31,8 +31,11 @@ final class BranchService
 
         // Search by name or code
         if (!empty($filters['q'])) {
-            $where[] = '(b.name LIKE :q OR b.code LIKE :q OR b.city LIKE :q)';
-            $params['q'] = '%' . $filters['q'] . '%';
+            $where[] = '(b.name LIKE :q1 OR b.code LIKE :q2 OR b.city LIKE :q3)';
+            $searchValue = '%' . $filters['q'] . '%';
+            $params['q1'] = $searchValue;
+            $params['q2'] = $searchValue;
+            $params['q3'] = $searchValue;
         }
 
         // Filter by status

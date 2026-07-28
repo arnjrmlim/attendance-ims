@@ -93,89 +93,33 @@ WHERE `slug` IN ('dashboard.view', 'attendance.view_own','leaves.create_own','co
 -- Branch (Main Branch)
 -- ============================================================
 INSERT INTO `branches` (`id`, `name`, `code`, `address`, `phone`, `email`, `status`) VALUES
-('b1000000-0000-0000-0000-000000000001', 'Main Branch', 'MAIN', '123 Main Street, City', '(02) 8123-4567', 'main@company.com', 'active'),
-('b2000000-0000-0000-0000-000000000002', 'North Branch', 'NORTH', '456 North Ave, City', '(02) 8234-5678', 'north@company.com', 'active');
+('b1000000-0000-0000-0000-000000000001', 'Main Branch', 'MAIN', '123 Main Street, City', '(02) 8123-4567', 'main@company.com', 'active');
 
 -- ============================================================
 -- Departments
 -- ============================================================
 INSERT INTO `departments` (`id`, `branch_id`, `name`, `code`, `description`, `status`) VALUES
-('d1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Human Resources',        'HR',  'HR Department',            'active'),
-('d2000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Information Technology', 'IT',  'IT Department',            'active'),
-('d3000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Finance & Accounting',   'FIN', 'Finance Department',       'active'),
-('d4000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Operations',             'OPS', 'Operations Department',    'active'),
-('d5000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Sales & Marketing',      'SMD', 'Sales & Marketing Dept',   'active');
+('d1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Administration', 'ADMIN', 'Administration Department', 'active');
 
 -- ============================================================
 -- Shifts
 -- ============================================================
 INSERT INTO `shifts` (`id`, `name`, `type`, `time_in`, `time_out`, `lunch_break_start`, `lunch_break_end`, `lunch_break_minutes`, `grace_period_minutes`, `required_hours`, `overnight`) VALUES
-('s1000000-0000-0000-0000-000000000001', 'Morning Shift (7AM-4PM)',   'regular',  '07:00:00', '16:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0),
-('s2000000-0000-0000-0000-000000000001', 'Day Shift (8AM-5PM)',       'regular',  '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0),
-('s3000000-0000-0000-0000-000000000001', 'Mid Shift (10AM-7PM)',      'regular',  '10:00:00', '19:00:00', '14:00:00', '15:00:00', 60, 15, 8.00, 0),
-('s4000000-0000-0000-0000-000000000001', 'Night Shift (10PM-6AM)',    'night',    '22:00:00', '06:00:00', '02:00:00', '03:00:00', 60, 15, 8.00, 1),
-('s5000000-0000-0000-0000-000000000001', 'Flexible Shift',            'flexible', '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 30, 8.00, 0);
+('s2000000-0000-0000-0000-000000000001', 'Day Shift (8AM-5PM)', 'regular', '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0);
 
 -- ============================================================
 -- Employees
 -- ============================================================
 INSERT INTO `employees` (`id`, `employee_number`, `first_name`, `middle_name`, `last_name`, `suffix`, `department_id`, `branch_id`, `shift_id`, `position`, `employment_status`, `contact_number`, `email`, `date_hired`, `qr_code_value`, `rfid_value`, `status`) VALUES
-('e1000000-0000-0000-0000-000000000001', 'EMP-0001', 'System',   NULL,      'Administrator', NULL, 'd1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'System Administrator', 'regular',      '09171234567', 'admin@company.com',    '2020-01-01', 'QR-EMP-0001-SYSTEM-ADM',  'RF-0001', 'active'),
-('e2000000-0000-0000-0000-000000000001', 'EMP-0002', 'Maria',    'Santos',  'Reyes',         NULL, 'd1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'HR Manager',           'regular',      '09182345678', 'maria.reyes@company.com','2021-03-15', 'QR-EMP-0002-MARIA-REY',   'RF-0002', 'active'),
-('e3000000-0000-0000-0000-000000000001', 'EMP-0003', 'Jose',     'Cruz',    'Garcia',        NULL, 'd2000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'IT Specialist',        'regular',      '09193456789', 'jose.garcia@company.com','2022-06-01', 'QR-EMP-0003-JOSE-GAR',   'RF-0003', 'active'),
-('e4000000-0000-0000-0000-000000000001', 'EMP-0004', 'Ana',      'Lopez',   'Torres',        NULL, 'd3000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'Accountant',           'probationary', '09204567890', 'ana.torres@company.com', '2024-01-10', 'QR-EMP-0004-ANA-TOR',    'RF-0004', 'active'),
-('e5000000-0000-0000-0000-000000000001', 'EMP-0005', 'Roberto',  'Mendoza', 'Dela Cruz',     NULL, 'd4000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's1000000-0000-0000-0000-000000000001', 'Operations Supervisor','regular',      '09215678901', 'roberto.dc@company.com', '2019-08-20', 'QR-EMP-0005-ROBERTO-DC', 'RF-0005', 'active');
-
--- ============================================================
--- Update employee PINs (PIN: 1234 for all, hashed)
--- password_hash('1234', PASSWORD_BCRYPT)  -- pre-computed
--- ============================================================
-UPDATE `employees` SET
-  `pin` = '1234',
-  `pin_hash` = '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'
-WHERE `id` IN (
-  'e1000000-0000-0000-0000-000000000001',
-  'e2000000-0000-0000-0000-000000000001',
-  'e3000000-0000-0000-0000-000000000001',
-  'e4000000-0000-0000-0000-000000000001',
-  'e5000000-0000-0000-0000-000000000001'
-);
+('e1000000-0000-0000-0000-000000000001', 'ADMIN001', 'System', NULL, 'Administrator', NULL, 'd1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'System Administrator', 'regular', '09171234567', 'admin@company.com', '2020-01-01', 'QR-ADMIN001-SYSTEM-ADM', 'RF-0001', 'active');
 
 -- ============================================================
 -- Users
--- Passwords (all): Admin@123456
+-- Default password: Admin@123456
 -- password_hash('Admin@123456', PASSWORD_BCRYPT, ['cost'=>12])
 -- ============================================================
--- Passwords (all): Admin@123456
--- Hash generated via: password_hash('Admin@123456', PASSWORD_BCRYPT, ['cost'=>12])
 INSERT INTO `users` (`id`, `username`, `password_hash`, `role_id`, `employee_id`, `full_name`, `email`, `status`) VALUES
-('u1000000-0000-0000-0000-000000000001', 'admin',    '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 1, 'e1000000-0000-0000-0000-000000000001', 'System Administrator', 'admin@company.com',     'active'),
-('u2000000-0000-0000-0000-000000000001', 'hr_maria', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 2, 'e2000000-0000-0000-0000-000000000001', 'Maria Santos Reyes',   'maria.reyes@company.com','active'),
-('u3000000-0000-0000-0000-000000000001', 'emp_jose', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 3, 'e3000000-0000-0000-0000-000000000001', 'Jose Cruz Garcia',     'jose.garcia@company.com','active');
-
--- ============================================================
--- Sample Attendance Records (last 5 working days)
--- ============================================================
-INSERT INTO `attendance` (`id`, `employee_id`, `attendance_date`, `time_recorded`, `attendance_type`, `method`, `device_name`, `ip_address`, `is_late`, `minutes_late`) VALUES
--- EMP-0003 today
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 07:58:00'), 'time_in',   'pin', 'KIOSK-01', '127.0.0.1', 0, 0),
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 12:01:00'), 'lunch_out', 'pin', 'KIOSK-01', '127.0.0.1', 0, 0),
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 13:00:00'), 'lunch_in',  'pin', 'KIOSK-01', '127.0.0.1', 0, 0),
--- EMP-0004 today (late)
-(UUID(), 'e4000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 08:25:00'), 'time_in',   'qr_code', 'KIOSK-01', '127.0.0.1', 1, 25),
--- EMP-0005 yesterday
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 06:58:00'), 'time_in',   'rfid', 'KIOSK-02', '127.0.0.1', 0, 0),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 12:00:00'), 'lunch_out', 'rfid', 'KIOSK-02', '127.0.0.1', 0, 0),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 13:01:00'), 'lunch_in',  'rfid', 'KIOSK-02', '127.0.0.1', 0, 0),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 16:00:00'), 'time_out',  'rfid', 'KIOSK-02', '127.0.0.1', 0, 0);
-
--- ============================================================
--- Attendance Summary
--- ============================================================
-INSERT INTO `attendance_summary` (`id`, `employee_id`, `attendance_date`, `time_in`, `lunch_out`, `lunch_in`, `time_out`, `total_hours`, `late_minutes`, `day_status`) VALUES
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(),                             CONCAT(CURDATE(),' 07:58:00'), CONCAT(CURDATE(),' 12:01:00'), CONCAT(CURDATE(),' 13:00:00'), NULL, NULL, 0, 'present'),
-(UUID(), 'e4000000-0000-0000-0000-000000000001', CURDATE(),                             CONCAT(CURDATE(),' 08:25:00'), NULL, NULL, NULL, NULL, 25, 'present'),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY),   CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 06:58:00'), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 12:00:00'), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 13:01:00'), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 16:00:00'), 8.05, 0, 'present');
+('u1000000-0000-0000-0000-000000000001', 'admin', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 1, 'e1000000-0000-0000-0000-000000000001', 'System Administrator', 'admin@company.com', 'active');
 
 -- ============================================================
 -- Settings
@@ -209,26 +153,6 @@ INSERT INTO `settings` (`key`, `value`, `type`, `group`, `description`) VALUES
 ('report_show_address',    '1',                           'boolean', 'reports', 'Show company address on reports'),
 ('report_show_generated_by','1',                           'boolean', 'reports', 'Show generated by on reports'),
 ('report_show_timestamp',  '1',                           'boolean', 'reports', 'Show generation timestamp on reports');
-
--- ============================================================
--- Phase 2 Seed Data
--- Run database/migrations/phase2.sql before this section when updating.
--- ============================================================
-INSERT IGNORE INTO `holidays` (`id`, `name`, `holiday_date`, `branch_id`, `type`, `description`, `is_recurring`, `status`) VALUES
-(UUID(), 'New Year''s Day', CONCAT(YEAR(CURDATE()), '-01-01'), NULL, 'regular', 'Regular annual holiday', 1, 'active'),
-(UUID(), 'Company Foundation Day', CONCAT(YEAR(CURDATE()), '-07-15'), 'b1000000-0000-0000-0000-000000000001', 'company', 'Company holiday', 1, 'active');
-
-INSERT IGNORE INTO `leave_requests` (`id`, `employee_id`, `leave_type`, `start_date`, `end_date`, `number_of_days`, `reason`, `status`) VALUES
-(UUID(), 'e3000000-0000-0000-0000-000000000001', 'Vacation Leave', DATE_ADD(CURDATE(), INTERVAL 7 DAY), DATE_ADD(CURDATE(), INTERVAL 8 DAY), 2, 'Family event', 'Pending');
-
-INSERT IGNORE INTO `notifications` (`id`, `recipient_user_id`, `title`, `message`, `type`) VALUES
-(UUID(), 'u1000000-0000-0000-0000-000000000001', 'Phase 2 Installed', 'Reports, leave, corrections, notifications, holidays, calendar and audit enhancements are ready.', 'success');
-
--- ============================================================
--- Audit log entries for seed
--- ============================================================
-INSERT INTO `audit_logs` (`user_id`, `username`, `action`, `module`, `record_id`, `new_value`, `computer_name`, `ip_address`) VALUES
-('u1000000-0000-0000-0000-000000000001', 'admin', 'SEED_DATA_INSTALLED', 'system', NULL, CONCAT('{"version":"2.0.0","timestamp":"', NOW(), '"}'), 'SEED-SCRIPT', '127.0.0.1');
 
 COMMIT;
 SET AUTOCOMMIT = 1;

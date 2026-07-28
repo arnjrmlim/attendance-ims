@@ -155,76 +155,34 @@ WHERE `slug` IN (
 -- Branches
 -- ============================================================
 INSERT INTO `branches` (`id`, `name`, `code`, `address`, `city`, `province`, `phone`, `email`, `branch_manager`, `time_zone`, `status`) VALUES
-('b1000000-0000-0000-0000-000000000001', 'Main Branch', 'MAIN', '123 Main Street, City', 'Manila', 'Metro Manila', '(02) 8123-4567', 'main@company.com', NULL, 'Asia/Manila', 'active'),
-('b2000000-0000-0000-0000-000000000002', 'North Branch', 'NORTH', '456 North Ave, City', 'Quezon City', 'Metro Manila', '(02) 8234-5678', 'north@company.com', NULL, 'Asia/Manila', 'active');
+('b1000000-0000-0000-0000-000000000001', 'Main Branch', 'MAIN', '123 Main Street, City', 'Manila', 'Metro Manila', '(02) 8123-4567', 'main@company.com', NULL, 'Asia/Manila', 'active');
 
 -- ============================================================
 -- Departments
 -- ============================================================
 INSERT INTO `departments` (`id`, `branch_id`, `name`, `code`, `description`, `department_head`, `contact_number`, `email_address`, `location`, `status`) VALUES
-('d1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Human Resources',        'HR',  'HR Department',            NULL, '(02) 8123-4567', 'hr@company.com',            'Main Building, 2nd Floor',  'active'),
-('d2000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Information Technology', 'IT',  'IT Department',            NULL, '(02) 8123-4568', 'it@company.com',            'Main Building, 3rd Floor',  'active'),
-('d3000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Finance & Accounting',   'FIN', 'Finance Department',       NULL, '(02) 8123-4569', 'finance@company.com',       'Main Building, 4th Floor',  'active'),
-('d4000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Operations',             'OPS', 'Operations Department',    NULL, '(02) 8123-4570', 'operations@company.com',    'Main Building, 1st Floor',  'active'),
-('d5000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Sales & Marketing',      'SMD', 'Sales & Marketing Dept',   NULL, '(02) 8123-4571', 'sales@company.com',         'Main Building, 5th Floor',  'active');
+('d1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'Administration', 'ADMIN', 'Administration Department', NULL, '(02) 8123-4567', 'admin@company.com', 'Main Building, 2nd Floor', 'active');
 
 -- ============================================================
 -- Shifts
 -- ============================================================
 INSERT INTO `shifts` (`id`, `name`, `description`, `type`, `time_in`, `time_out`, `lunch_break_start`, `lunch_break_end`, `lunch_break_minutes`, `grace_period_minutes`, `required_hours`, `overnight`, `status`, `is_default`) VALUES
-('s0000000-0000-0000-0000-000000000001', 'Regular Office Hours',      'Standard 8 AM – 5 PM office shift with a 1-hour lunch break.',    'regular',  '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0, 'active', 1),
-('s1000000-0000-0000-0000-000000000001', 'Morning Shift (7AM-4PM)',   '7 AM early morning shift.',                                       'regular',  '07:00:00', '16:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0, 'active', 0),
-('s2000000-0000-0000-0000-000000000001', 'Day Shift (8AM-5PM)',       'Standard day shift.',                                             'regular',  '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0, 'active', 0),
-('s3000000-0000-0000-0000-000000000001', 'Mid Shift (10AM-7PM)',      'Mid-day shift for split-schedule teams.',                         'regular',  '10:00:00', '19:00:00', '14:00:00', '15:00:00', 60, 15, 8.00, 0, 'active', 0),
-('s4000000-0000-0000-0000-000000000001', 'Night Shift (10PM-6AM)',    'Overnight shift spanning midnight.',                              'night',    '22:00:00', '06:00:00', '02:00:00', '03:00:00', 60, 15, 8.00, 1, 'active', 0),
-('s5000000-0000-0000-0000-000000000001', 'Flexible Shift',            'Flexible schedule with extended grace period.',                   'flexible', '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 30, 8.00, 0, 'active', 0);
+('s0000000-0000-0000-0000-000000000001', 'Day Shift', 'Standard 8 AM – 5 PM office shift with a 1-hour lunch break.', 'regular', '08:00:00', '17:00:00', '12:00:00', '13:00:00', 60, 15, 8.00, 0, 'active', 1);
 
 -- ============================================================
 -- Employees
 -- ============================================================
 INSERT INTO `employees` (`id`, `employee_number`, `first_name`, `middle_name`, `last_name`, `suffix`, `gender`, `date_of_birth`, `civil_status`, `nationality`, `department_id`, `branch_id`, `shift_id`, `position`, `employment_status`, `employment_type`, `contact_number`, `alternate_mobile`, `email`, `home_address`, `emergency_contact_name`, `emergency_contact_number`, `emergency_contact_relationship`, `date_hired`, `immediate_supervisor_id`, `username`, `password_hash`, `pin`, `pin_hash`, `qr_code_value`, `rfid_value`, `status`) VALUES
-('e1000000-0000-0000-0000-000000000001', 'EMP-0001', 'System',   NULL,      'Administrator', NULL, 'Male',   '1990-01-01', 'Single', 'Filipino', 'd1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'System Administrator', 'Active', 'Regular',      '09171234567', NULL, 'admin@company.com',    '123 Main St, Manila', 'Juan Dela Cruz', '09181234567', 'Spouse', '2020-01-01', NULL, 'admin',    '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', '1234', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'QR-EMP-0001-SYSTEM-ADM',  'RF-0001', 'active'),
-('e2000000-0000-0000-0000-000000000001', 'EMP-0002', 'Maria',    'Santos',  'Reyes',         NULL, 'Female', '1985-03-15', 'Married', 'Filipino', 'd1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'HR Manager',           'Active', 'Regular',      '09182345678', NULL, 'maria.reyes@company.com','456 North Ave, QC', 'Pedro Reyes', '09192345678', 'Spouse', '2021-03-15', NULL, 'hr_maria', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', '1234', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'QR-EMP-0002-MARIA-REY',   'RF-0002', 'active'),
-('e3000000-0000-0000-0000-000000000001', 'EMP-0003', 'Jose',     'Cruz',    'Garcia',        NULL, 'Male',   '1990-06-01', 'Single',  'Filipino', 'd2000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'IT Specialist',        'Active', 'Regular',      '09193456789', NULL, 'jose.garcia@company.com','789 East St, Manila', 'Maria Garcia', '09203456789', 'Mother', '2022-06-01', NULL, 'emp_jose', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', '1234', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'QR-EMP-0003-JOSE-GAR',   'RF-0003', 'active'),
-('e4000000-0000-0000-0000-000000000001', 'EMP-0004', 'Ana',      'Lopez',   'Torres',        NULL, 'Female', '1995-01-10', 'Single',  'Filipino', 'd3000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's2000000-0000-0000-0000-000000000001', 'Accountant',           'Active', 'Probationary', '09204567890', NULL, 'ana.torres@company.com', '321 South St, Manila', 'Carlos Torres', '09214567890', 'Father', '2024-01-10', 'e2000000-0000-0000-0000-000000000001', NULL, NULL, '1234', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'QR-EMP-0004-ANA-TOR',    'RF-0004', 'active'),
-('e5000000-0000-0000-0000-000000000001', 'EMP-0005', 'Roberto',  'Mendoza', 'Dela Cruz',     NULL, 'Male',   '1980-08-20', 'Married', 'Filipino', 'd4000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's1000000-0000-0000-0000-000000000001', 'Operations Supervisor','Active', 'Regular',      '09215678901', NULL, 'roberto.dc@company.com', '654 West St, Manila', 'Elena Dela Cruz', '09225678901', 'Spouse', '2019-08-20', NULL, NULL, NULL, '1234', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'QR-EMP-0005-ROBERTO-DC', 'RF-0005', 'active');
+('e1000000-0000-0000-0000-000000000001', 'ADMIN001', 'System', NULL, 'Administrator', NULL, 'Male', '1990-01-01', 'Single', 'Filipino', 'd1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 's0000000-0000-0000-0000-000000000001', 'System Administrator', 'Active', 'Regular', '09171234567', NULL, 'admin@company.com', '123 Main St, Manila', 'Emergency Contact', '09181234567', 'Spouse', '2020-01-01', NULL, 'admin', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', '1234', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'QR-ADMIN001-SYSTEM-ADM', 'RF-0001', 'active');
 
 -- ============================================================
 -- Users
--- Passwords (all): Admin@123456
+-- Default password: Admin@123456
 -- Hash generated via: password_hash('Admin@123456', PASSWORD_BCRYPT, ['cost'=>12])
--- ============================================================
--- Default password for all seed users: Admin@123456
--- Hash: password_hash('Admin@123456', PASSWORD_BCRYPT, ['cost'=>12])
 -- must_change_password = 0 for seed users so they can log in immediately
+-- ============================================================
 INSERT INTO `users` (`id`, `username`, `password_hash`, `role_id`, `employee_id`, `full_name`, `email`, `status`, `must_change_password`, `password_changed_at`) VALUES
-('u1000000-0000-0000-0000-000000000001', 'admin',    '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 1, 'e1000000-0000-0000-0000-000000000001', 'System Administrator', 'admin@company.com',     'active', 0, NOW()),
-('u2000000-0000-0000-0000-000000000001', 'hr_maria', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 2, 'e2000000-0000-0000-0000-000000000001', 'Maria Santos Reyes',   'maria.reyes@company.com','active', 0, NOW()),
-('u3000000-0000-0000-0000-000000000001', 'emp_jose', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 4, 'e3000000-0000-0000-0000-000000000001', 'Jose Cruz Garcia',     'jose.garcia@company.com','active', 0, NOW());
-
--- ============================================================
--- Sample Attendance Records (last 5 working days)
--- ============================================================
-INSERT INTO `attendance` (`id`, `employee_id`, `attendance_date`, `time_recorded`, `attendance_type`, `method`, `device_name`, `ip_address`, `is_late`, `minutes_late`) VALUES
--- EMP-0003 today
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 07:58:00'), 'time_in',   'pin', 'KIOSK-01', '127.0.0.1', 0, 0),
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 12:01:00'), 'lunch_out', 'pin', 'KIOSK-01', '127.0.0.1', 0, 0),
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 13:00:00'), 'lunch_in',  'pin', 'KIOSK-01', '127.0.0.1', 0, 0),
--- EMP-0004 today (late)
-(UUID(), 'e4000000-0000-0000-0000-000000000001', CURDATE(), CONCAT(CURDATE(),' 08:25:00'), 'time_in',   'qr_code', 'KIOSK-01', '127.0.0.1', 1, 25),
--- EMP-0005 yesterday
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 06:58:00'), 'time_in',   'rfid', 'KIOSK-02', '127.0.0.1', 0, 0),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 12:00:00'), 'lunch_out', 'rfid', 'KIOSK-02', '127.0.0.1', 0, 0),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 13:01:00'), 'lunch_in',  'rfid', 'KIOSK-02', '127.0.0.1', 0, 0),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 16:00:00'), 'time_out',  'rfid', 'KIOSK-02', '127.0.0.1', 0, 0);
-
--- ============================================================
--- Attendance Summary
--- ============================================================
-INSERT INTO `attendance_summary` (`id`, `employee_id`, `attendance_date`, `time_in`, `lunch_out`, `lunch_in`, `time_out`, `total_hours`, `late_minutes`, `day_status`) VALUES
-(UUID(), 'e3000000-0000-0000-0000-000000000001', CURDATE(),                             CONCAT(CURDATE(),' 07:58:00'), CONCAT(CURDATE(),' 12:01:00'), CONCAT(CURDATE(),' 13:00:00'), NULL, NULL, 0, 'present'),
-(UUID(), 'e4000000-0000-0000-0000-000000000001', CURDATE(),                             CONCAT(CURDATE(),' 08:25:00'), NULL, NULL, NULL, NULL, 25, 'present'),
-(UUID(), 'e5000000-0000-0000-0000-000000000001', DATE_SUB(CURDATE(),INTERVAL 1 DAY),   CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 06:58:00'), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 12:00:00'), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 13:01:00'), CONCAT(DATE_SUB(CURDATE(),INTERVAL 1 DAY),' 16:00:00'), 8.05, 0, 'present');
+('u1000000-0000-0000-0000-000000000001', 'admin', '$2y$12$yEaM/kCQSTgDSRFxK9khVOmvc7vlLAkw3j36UBSTXi33yyryHvvwm', 1, 'e1000000-0000-0000-0000-000000000001', 'System Administrator', 'admin@company.com', 'active', 0, NOW());
 
 -- ============================================================
 -- Settings
@@ -296,31 +254,6 @@ INSERT INTO `settings` (`key`, `value`, `type`, `group`, `description`) VALUES
 ('employee_photo_allowed_types', 'jpg,jpeg,png',         'string',  'employees','Allowed employee photo file types'),
 ('qr_code_size',          '300',                         'integer', 'employees','QR code image size in pixels'),
 ('qr_code_error_correction', 'M',                        'string',  'employees','QR code error correction level (L, M, Q, H)');
-
--- ============================================================
--- Holidays
--- ============================================================
-INSERT INTO `holidays` (`id`, `name`, `holiday_date`, `branch_id`, `type`, `description`, `is_recurring`, `status`) VALUES
-(UUID(), 'New Year''s Day', CONCAT(YEAR(CURDATE()), '-01-01'), NULL, 'regular', 'Regular annual holiday', 1, 'active'),
-(UUID(), 'Company Foundation Day', CONCAT(YEAR(CURDATE()), '-07-15'), 'b1000000-0000-0000-0000-000000000001', 'company', 'Company holiday', 1, 'active');
-
--- ============================================================
--- Leave Requests
--- ============================================================
-INSERT INTO `leave_requests` (`id`, `employee_id`, `leave_type`, `start_date`, `end_date`, `number_of_days`, `reason`, `status`) VALUES
-(UUID(), 'e3000000-0000-0000-0000-000000000001', 'Vacation Leave', DATE_ADD(CURDATE(), INTERVAL 7 DAY), DATE_ADD(CURDATE(), INTERVAL 8 DAY), 2, 'Family event', 'Pending');
-
--- ============================================================
--- Notifications
--- ============================================================
-INSERT INTO `notifications` (`id`, `recipient_user_id`, `title`, `message`, `type`) VALUES
-(UUID(), 'u1000000-0000-0000-0000-000000000001', 'Database Initialized', 'The database has been successfully initialized with the master migration script.', 'success');
-
--- ============================================================
--- Audit log entries for seed
--- ============================================================
-INSERT INTO `audit_logs` (`user_id`, `username`, `action`, `module`, `record_id`, `new_value`, `computer_name`, `ip_address`) VALUES
-('u1000000-0000-0000-0000-000000000001', 'admin', 'SEED_DATA_INSTALLED', 'system', NULL, CONCAT('{"version":"1.0.0","timestamp":"', NOW(), '"}'), 'SEED-SCRIPT', '127.0.0.1');
 
 COMMIT;
 SET AUTOCOMMIT = 1;

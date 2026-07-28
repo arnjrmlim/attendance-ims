@@ -77,15 +77,7 @@ final class EmployeeService
         // Get total count
         $countSql = 'SELECT COUNT(*) FROM employees e WHERE ' . $whereClause;
         $countStmt = Database::connection()->prepare($countSql);
-
-        try {
-            $countStmt->execute($params);
-        } catch (\PDOException $e) {
-            error_log('COUNT SQL: ' . $countSql);
-            error_log('PARAMS: ' . print_r($params, true));
-            throw $e;
-        }
-
+        $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
 
         // Get pagination metadata
@@ -115,16 +107,7 @@ final class EmployeeService
         }
         $stmt->bindValue(':offset', $meta['offset'], PDO::PARAM_INT);
         $stmt->bindValue(':per_page', $perPage, PDO::PARAM_INT);
-
-        try {
-            $stmt->execute();
-        } catch (\PDOException $e) {
-            error_log('DATA SQL: ' . $sql);
-            error_log('PARAMS: ' . print_r($params, true));
-            error_log('OFFSET: ' . $meta['offset']);
-            error_log('PER_PAGE: ' . $perPage);
-            throw $e;
-        }
+        $stmt->execute();
 
         return [
             'data' => $stmt->fetchAll(),

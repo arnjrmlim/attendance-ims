@@ -18,8 +18,11 @@ final class AuditController extends BaseController
             $params['module'] = $_GET['module'];
         }
         if (!empty($_GET['q'])) {
-            $where[] = '(username LIKE :q OR action LIKE :q OR record_id LIKE :q)';
-            $params['q'] = '%' . $_GET['q'] . '%';
+            $where[] = '(username LIKE :q1 OR action LIKE :q2 OR record_id LIKE :q3)';
+            $searchValue = '%' . $_GET['q'] . '%';
+            $params['q1'] = $searchValue;
+            $params['q2'] = $searchValue;
+            $params['q3'] = $searchValue;
         }
         $sql = 'SELECT * FROM audit_logs';
         if ($where) {

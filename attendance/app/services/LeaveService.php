@@ -45,10 +45,15 @@ final class LeaveService
         if (!empty($filters['q'])) {
             if ($ownOnly) {
                 $where[]  = 'lr.reason LIKE :q';
+                $params['q'] = '%' . $filters['q'] . '%';
             } else {
-                $where[]  = "(e.employee_number LIKE :q OR e.first_name LIKE :q OR e.last_name LIKE :q OR lr.reason LIKE :q)";
+                $where[]  = "(e.employee_number LIKE :q1 OR e.first_name LIKE :q2 OR e.last_name LIKE :q3 OR lr.reason LIKE :q4)";
+                $searchValue = '%' . $filters['q'] . '%';
+                $params['q1'] = $searchValue;
+                $params['q2'] = $searchValue;
+                $params['q3'] = $searchValue;
+                $params['q4'] = $searchValue;
             }
-            $params['q'] = '%' . $filters['q'] . '%';
         }
         // Date range filters
         if (!empty($filters['start_date'])) {
