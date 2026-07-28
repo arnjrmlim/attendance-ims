@@ -210,25 +210,32 @@
     <?php if ($meta['pages'] > 1): ?>
         <nav class="mt-3">
             <ul class="pagination pagination-sm justify-content-center mb-0">
+                <?php
+                // Build filter query string without page parameter
+                $paginationFilters = $filters;
+                unset($paginationFilters['page']);
+                $filterQueryString = http_build_query($paginationFilters);
+                $filterQueryString = $filterQueryString ? '&' . $filterQueryString : '';
+                ?>
                 <?php if ($meta['page'] > 1): ?>
                     <li class="page-item">
-                        <a class="page-link" href="<?= url('employees?page=' . ($meta['page'] - 1) . '&' . http_build_query($filters)) ?>">Previous</a>
+                        <a class="page-link" href="<?= url('employees?page=' . ($meta['page'] - 1) . $filterQueryString) ?>">Previous</a>
                     </li>
                 <?php endif; ?>
-                
+
                 <?php for ($i = 1; $i <= $meta['pages']; $i++): ?>
                     <?php if ($i === $meta['page'] || abs($i - $meta['page']) <= 2 || $i === 1 || $i === $meta['pages']): ?>
                         <li class="page-item <?= $i === $meta['page'] ? 'active' : '' ?>">
-                            <a class="page-link" href="<?= url('employees?page=' . $i . '&' . http_build_query($filters)) ?>"><?= $i ?></a>
+                            <a class="page-link" href="<?= url('employees?page=' . $i . $filterQueryString) ?>"><?= $i ?></a>
                         </li>
                     <?php elseif (abs($i - $meta['page']) === 3): ?>
                         <li class="page-item disabled"><span class="page-link">...</span></li>
                     <?php endif; ?>
                 <?php endfor; ?>
-                
+
                 <?php if ($meta['page'] < $meta['pages']): ?>
                     <li class="page-item">
-                        <a class="page-link" href="<?= url('employees?page=' . ($meta['page'] + 1) . '&' . http_build_query($filters)) ?>">Next</a>
+                        <a class="page-link" href="<?= url('employees?page=' . ($meta['page'] + 1) . $filterQueryString) ?>">Next</a>
                     </li>
                 <?php endif; ?>
             </ul>

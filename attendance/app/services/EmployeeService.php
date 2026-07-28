@@ -29,8 +29,11 @@ final class EmployeeService
 
         // Search by employee number or name
         if (!empty($filters['q'])) {
-            $where[] = '(e.employee_number LIKE :q OR e.first_name LIKE :q OR e.last_name LIKE :q OR CONCAT(e.first_name, " ", e.last_name) LIKE :q)';
-            $params['q'] = '%' . $filters['q'] . '%';
+            $where[] = '(e.employee_number LIKE :q1 OR e.first_name LIKE :q2 OR e.last_name LIKE :q3 OR CONCAT(e.first_name, " ", e.last_name) LIKE :q4)';
+            $params['q1'] = '%' . $filters['q'] . '%';
+            $params['q2'] = '%' . $filters['q'] . '%';
+            $params['q3'] = '%' . $filters['q'] . '%';
+            $params['q4'] = '%' . $filters['q'] . '%';
         }
 
         // Filter by department
@@ -70,20 +73,28 @@ final class EmployeeService
         }
 
         $whereClause = !empty($where) ? implode(' AND ', $where) : '1=1';
-        
+
         // Get total count
         $countSql = 'SELECT COUNT(*) FROM employees e WHERE ' . $whereClause;
         $countStmt = Database::connection()->prepare($countSql);
-        $countStmt->execute($params);
+
+        try {
+            $countStmt->execute($params);
+        } catch (\PDOException $e) {
+            error_log('COUNT SQL: ' . $countSql);
+            error_log('PARAMS: ' . print_r($params, true));
+            throw $e;
+        }
+
         $total = (int) $countStmt->fetchColumn();
 
         // Get pagination metadata
         $meta = pagination_meta($total, $page, $perPage);
 
         // Get employees
-        $sql = 'SELECT e.*, 
-                       d.name AS department_name, 
-                       b.name AS branch_name, 
+        $sql = 'SELECT e.*,
+                       d.name AS department_name,
+                       b.name AS branch_name,
                        s.name AS shift_name,
                        CONCAT(e.first_name, " ", e.last_name) AS full_name,
                        u.username AS created_by_username,
@@ -104,7 +115,16 @@ final class EmployeeService
         }
         $stmt->bindValue(':offset', $meta['offset'], PDO::PARAM_INT);
         $stmt->bindValue(':per_page', $perPage, PDO::PARAM_INT);
-        $stmt->execute();
+
+        try {
+            $stmt->execute();
+        } catch (\PDOException $e) {
+            error_log('DATA SQL: ' . $sql);
+            error_log('PARAMS: ' . print_r($params, true));
+            error_log('OFFSET: ' . $meta['offset']);
+            error_log('PER_PAGE: ' . $perPage);
+            throw $e;
+        }
 
         return [
             'data' => $stmt->fetchAll(),
