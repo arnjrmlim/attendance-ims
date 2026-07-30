@@ -21,7 +21,7 @@ final class BranchController extends BaseController
      */
     public function index(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         
         $page = (int) ($_GET['page'] ?? 1);
         $perPage = (int) ($_GET['per_page'] ?? 15);
@@ -41,7 +41,7 @@ final class BranchController extends BaseController
      */
     public function create(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         
         $this->render('branches/create', [
             'title' => 'Add New Branch',
@@ -53,7 +53,7 @@ final class BranchController extends BaseController
      */
     public function store(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         verify_csrf();
         
         try {
@@ -71,7 +71,7 @@ final class BranchController extends BaseController
      */
     public function show(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         
         $id = $_GET['id'] ?? '';
         $branch = $this->service->find($id);
@@ -92,7 +92,7 @@ final class BranchController extends BaseController
      */
     public function edit(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         
         $id = $_GET['id'] ?? '';
         $branch = $this->service->find($id);
@@ -113,7 +113,7 @@ final class BranchController extends BaseController
      */
     public function update(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         verify_csrf();
         
         $id = $_POST['id'] ?? '';
@@ -133,7 +133,7 @@ final class BranchController extends BaseController
      */
     public function activate(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         verify_csrf();
         
         $id = $_POST['id'] ?? '';
@@ -153,7 +153,7 @@ final class BranchController extends BaseController
      */
     public function deactivate(): void
     {
-        require_role(['administrator']);
+        require_role(['administrator', 'hr']);
         verify_csrf();
         
         $id = $_POST['id'] ?? '';

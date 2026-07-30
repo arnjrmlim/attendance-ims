@@ -54,8 +54,15 @@ $companyAbbreviation = $cfg->getCompanyAbbreviation();
                     <li class="nav-item"><a class="nav-link" href="<?= url('employees') ?>"><i class="bi bi-people"></i> Employees</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= url('holidays') ?>"><i class="bi bi-sun"></i> Holidays</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?= url('audit') ?>"><i class="bi bi-shield-check"></i> Audit</a></li>
-                    <?php if (!has_role('administrator')): ?>
-                        <li class="nav-item"><a class="nav-link" href="<?= url('shifts') ?>"><i class="bi bi-clock"></i> Shifts</a></li>
+                    <?php if (has_role('hr')): ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex flex-column align-items-center gap-1" href="#" role="button" data-bs-toggle="dropdown"><i class="bi bi-building"></i> Organization</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="<?= url('branches') ?>"><i class="bi bi-building me-1"></i> Branches</a></li>
+                                <li><a class="dropdown-item" href="<?= url('departments') ?>"><i class="bi bi-diagram-3 me-1"></i> Departments</a></li>
+                                <li><a class="dropdown-item" href="<?= url('shifts') ?>"><i class="bi bi-clock me-1"></i> Shifts</a></li>
+                            </ul>
+                        </li>
                     <?php endif; ?>
                 <?php endif; ?>
                 <?php if (has_role('administrator')): ?>
