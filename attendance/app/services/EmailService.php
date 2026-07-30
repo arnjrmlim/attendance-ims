@@ -405,6 +405,14 @@ final class EmailService
 
             if ($encryption === 'tls') {
                 $write('STARTTLS'); $read();
+                $cryptoOptions = [
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true
+                    ]
+                ];
+                stream_context_set_option($conn, $cryptoOptions);
                 stream_socket_enable_crypto($conn, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
                 $write("EHLO {$host}"); $read();
             }
@@ -561,6 +569,14 @@ final class EmailService
             if ($encryption === 'tls') {
                 $write('STARTTLS');
                 $read();
+                $cryptoOptions = [
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true
+                    ]
+                ];
+                stream_context_set_option($conn, $cryptoOptions);
                 stream_socket_enable_crypto($conn, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
                 $write("EHLO {$host}");
                 $read();
