@@ -29,7 +29,7 @@ use App\Core\Database;
  *   break_minutes    = break_in − break_out  (0 if either is missing)
  *   overtime_minutes = overtime_out − overtime_in (0 if either is missing)
  *   late_minutes     = time_in − shift_start  after grace period
- *   undertime_minutes= (required_hours − actual_hours) * 60  when < required
+ *   undertime_minutes= shift_end − time_out  when time_out before shift_end
  *   is_late          = late_minutes > 0
  */
 final class AttendanceEngine
@@ -352,11 +352,19 @@ final class AttendanceEngine
                 $isLate      = $lateMinutes > 0;
             }
 
-            // Undertime: net hours < required hours
-            if ($totalHours !== null) {
-                $required = (float) ($shift['required_hours'] ?? 8.0);
-                if ($totalHours < $required) {
-                    $undertimeMinutes = (int) round(($required - $totalHours) * 60);
+            // Undertime: time_out before shift end
+            if ($shift && $timeOut) {
+                $shiftInTime  = strtotime($date . ' ' . $shift['time_in']);
+                $shiftOutTime = strtotime($date . ' ' . $shift['time_out']);
+                
+                // Handle overnight shifts: if shift_out < shift_in, shift ends next day
+                if ($shiftOutTime < $shiftInTime) {
+                    $shiftOutTime = strtotime('+1 day', $shiftOutTime);
+                }
+                
+                $tapOut = strtotime($timeOut);
+                if ($tapOut < $shiftOutTime) {
+                    $undertimeMinutes = (int) round(($shiftOutTime - $tapOut) / 60);
                 }
             }
         }
