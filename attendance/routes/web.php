@@ -8,6 +8,7 @@ use App\Controllers\AttendanceMonitoringController;
 use App\Controllers\AuthController;
 use App\Controllers\AuditController;
 use App\Controllers\BackupController;
+use App\Controllers\BackupSettingsController;
 use App\Controllers\BranchController;
 use App\Controllers\ShiftController;
 use App\Controllers\CalendarController;
@@ -118,6 +119,10 @@ $router->post('/backups/run', [BackupController::class, 'run']);
 $router->get('/backups/download', [BackupController::class, 'download']);
 $router->post('/backups/restore', [BackupController::class, 'restore']);
 $router->post('/backups/delete', [BackupController::class, 'delete']);
+$router->get('/backups/settings', [BackupSettingsController::class, 'index']);
+$router->post('/backups/settings/save', [BackupSettingsController::class, 'save']);
+$router->post('/backups/settings/test', [BackupSettingsController::class, 'test']);
+$router->post('/backups/settings/run-scheduler', [BackupSettingsController::class, 'runScheduler']);
 
 /* ── Phase 3: System Configuration, Health, Job Logs ────────────────── */
 $router->get('/system/settings', [SystemController::class, 'settings']);

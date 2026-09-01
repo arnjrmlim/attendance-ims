@@ -32,4 +32,15 @@ if (is_file($vendor)) {
 
 $router = new Router();
 require dirname(__DIR__) . '/routes/web.php';
+
+// Check and run scheduled backups on every page load
+try {
+    if (class_exists('App\Services\BackupSchedulerService')) {
+        $scheduler = new \App\Services\BackupSchedulerService();
+        $scheduler->checkAndRun();
+    }
+} catch (\Throwable $e) {
+    // Silently ignore scheduler errors to not disrupt the application
+}
+
 $router->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);

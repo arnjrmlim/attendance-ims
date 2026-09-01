@@ -8,9 +8,14 @@ $typeColors = ['daily' => 'info', 'weekly' => 'primary', 'monthly' => 'success',
         <h4 class="fw-semibold mb-0"><i class="bi bi-database-fill-down me-2"></i>Database Backups</h4>
         <small class="text-muted">Create, download, restore and manage database backups</small>
     </div>
-    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#runBackupModal">
-        <i class="bi bi-plus-lg"></i> Run Backup Now
-    </button>
+    <div>
+        <a href="<?= url('backups/settings') ?>" class="btn btn-outline-secondary btn-sm me-2">
+            <i class="bi bi-gear"></i> Settings
+        </a>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#runBackupModal">
+            <i class="bi bi-plus-lg"></i> Run Backup Now
+        </button>
+    </div>
 </div>
 
 <!-- Quick stats -->

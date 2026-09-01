@@ -60,7 +60,18 @@ final class BackupService
 
         try {
             $dbConfig  = require dirname(__DIR__, 2) . '/config/database.php';
-            $compress  = (bool)(int) $this->cfg->get('backup_compress', 1);
+            
+            // Get schedule configuration for compression and uploads
+            $stmt = Database::connection()->prepare(
+                "SELECT compress_backup, include_uploads FROM backup_schedules 
+                 WHERE id = 's0000000-0000-0000-0000-000000000001'"
+            );
+            $stmt->execute();
+            $schedule = $stmt->fetch();
+            
+            $compress  = $schedule ? (bool)$schedule['compress_backup'] : (bool)(int) $this->cfg->get('backup_compress', 1);
+            $includeUploads = $schedule ? (bool)$schedule['include_uploads'] : false;
+            
             $timestamp = date('Ymd_His');
             $baseName  = "backup_{$type}_{$timestamp}";
             $sqlFile   = $this->backupDir . DIRECTORY_SEPARATOR . $baseName . '.sql';
@@ -106,6 +117,15 @@ final class BackupService
                     $zip = new \ZipArchive();
                     if ($zip->open($finalFile, \ZipArchive::CREATE) === true) {
                         $zip->addFile($sqlFile, $baseName . '.sql');
+                        
+                        // Include uploads directory if configured
+                        if ($includeUploads) {
+                            $uploadsDir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
+                            if (is_dir($uploadsDir)) {
+                                $this->addDirectoryToZip($zip, $uploadsDir, 'uploads');
+                            }
+                        }
+                        
                         $zip->close();
                         @unlink($sqlFile);
                     } else {
@@ -124,9 +144,9 @@ final class BackupService
             Database::connection()->prepare(
                 "UPDATE backup_logs
                  SET filename = ?, filepath = ?, filesize = ?, status = 'success',
-                     duration_seconds = ?, verified = 1
+                     duration_seconds = ?, verified = 1, uploads_included = ?, compression_used = ?
                  WHERE id = ?"
-            )->execute([basename($finalFile), $finalFile, $filesize, $duration, $logId]);
+            )->execute([basename($finalFile), $finalFile, $filesize, $duration, (int)$includeUploads, (int)$compress, $logId]);
 
             // Cleanup old backups
             $this->cleanupOld();
@@ -270,6 +290,19 @@ final class BackupService
      */
     public function cleanupOld(): int
     {
+        // Check if using new retention count from schedule
+        $stmt = Database::connection()->prepare(
+            "SELECT retention_count FROM backup_schedules WHERE id = 's0000000-0000-0000-0000-000000000001'"
+        );
+        $stmt->execute();
+        $schedule = $stmt->fetch();
+        
+        if ($schedule && isset($schedule['retention_count'])) {
+            // Use retention count from schedule (keep last N backups)
+            return $this->cleanupByCount((int)$schedule['retention_count']);
+        }
+        
+        // Fallback to old method (retention by days)
         $days = (int) $this->cfg->get('backup_retention_days', 30);
         $cutoff = new \DateTimeImmutable("-{$days} days");
 
@@ -287,6 +320,34 @@ final class BackupService
             Database::connection()->prepare('DELETE FROM backup_logs WHERE id = ?')
                 ->execute([$row['id']]);
         }
+        return $deleted;
+    }
+
+    /**
+     * Delete old backups keeping only the most recent N backups.
+     */
+    public function cleanupByCount(int $keepCount): int
+    {
+        // Get all successful backups, ordered by date (newest first)
+        $stmt = Database::connection()->prepare(
+            "SELECT id, filepath FROM backup_logs 
+             WHERE status = 'success'
+             ORDER BY created_at DESC"
+        );
+        $stmt->execute();
+        $backups = $stmt->fetchAll();
+
+        // Keep only the most recent N backups
+        $deleted = 0;
+        foreach (array_slice($backups, $keepCount) as $backup) {
+            if ($backup['filepath'] && is_file($backup['filepath'])) {
+                @unlink($backup['filepath']);
+            }
+            Database::connection()->prepare('DELETE FROM backup_logs WHERE id = ?')
+                ->execute([$backup['id']]);
+            $deleted++;
+        }
+
         return $deleted;
     }
 
@@ -324,5 +385,24 @@ final class BackupService
     {
         exec('where ' . escapeshellarg($cmd) . ' 2>NUL', $out, $code);
         return $code === 0;
+    }
+
+    /**
+     * Recursively add a directory to a ZipArchive.
+     */
+    private function addDirectoryToZip(\ZipArchive $zip, string $directory, string $zipPath): void
+    {
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($files as $file) {
+            if ($file->isFile()) {
+                $filePath = $file->getRealPath();
+                $relativePath = substr($filePath, strlen($directory) + 1);
+                $zip->addFile($filePath, $zipPath . '/' . $relativePath);
+            }
+        }
     }
 }
