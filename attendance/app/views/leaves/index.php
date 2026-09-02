@@ -142,16 +142,15 @@ $ownOnly   = $ownOnly   ?? !$isAdminHr;
                     <th>Days</th>
                     <th>Status</th>
                     <th>Reason</th>
-                    <?php if ($isAdminHr): ?>
-                        <th>Remarks</th>
-                    <?php endif; ?>
-                    <th class="text-end">Actions</th>
+                    <th>Attachment</th>
+                    <th>Remarks</th>
+                    <th class="text-nowrap" style="width:1%">Actions</th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($rows)): ?>
                 <tr>
-                    <td colspan="<?= $isAdminHr ? 8 : 6 ?>"
+                    <td colspan="<?= $isAdminHr ? 9 : 8 ?>"
                         class="text-center text-muted py-5">
                         <i class="bi bi-calendar-x fs-4 d-block mb-2"></i>
                         No leave requests found.
@@ -167,7 +166,7 @@ $ownOnly   = $ownOnly   ?? !$isAdminHr;
             ?>
                 <tr>
                     <?php if ($isAdminHr): ?>
-                        <td>
+                    <td>
                             <div class="fw-semibold small"><?= e($row['employee_name'] ?? '—') ?></div>
                             <div class="text-muted" style="font-size:.75rem"><?= e($row['employee_number'] ?? '') ?></div>
                         </td>
@@ -188,14 +187,23 @@ $ownOnly   = $ownOnly   ?? !$isAdminHr;
                             <?= e(mb_strimwidth($row['reason'], 0, 60, '…')) ?>
                         </small>
                     </td>
-                    <?php if ($isAdminHr): ?>
-                        <td>
+                    <td>
+                            <?php if (!empty($row['attachment'])): ?>
+                                <a class="btn btn-xs btn-outline-primary"
+                                   href="<?= url('leaves/attachment?id=' . rawurlencode($row['id'])) ?>"
+                                   target="_blank" rel="noopener" title="View attachment">
+                                    <i class="bi bi-paperclip"></i> View
+                                </a>
+                            <?php else: ?>
+                                <small class="text-muted">No file</small>
+                            <?php endif; ?>
+                    </td>
+                    <td>
                             <small class="text-muted">
                                 <?= e($row['admin_remarks'] ?? '—') ?>
                             </small>
-                        </td>
-                    <?php endif; ?>
-                    <td class="text-end text-nowrap">
+                    </td>
+                    <td class="text-nowrap" style="width:1%">
                         <?php if ($row['status'] === 'Pending' && $isAdminHr): ?>
                             <!-- Approve -->
                             <form class="d-inline" method="post"

@@ -47,12 +47,13 @@ final class LeaveService
                 $where[]  = 'lr.reason LIKE :q';
                 $params['q'] = '%' . $filters['q'] . '%';
             } else {
-                $where[]  = "(e.employee_number LIKE :q1 OR e.first_name LIKE :q2 OR e.last_name LIKE :q3 OR lr.reason LIKE :q4)";
+                $where[]  = "(e.employee_number LIKE :q1 OR e.first_name LIKE :q2 OR e.last_name LIKE :q3 OR CONCAT_WS(' ', e.first_name, NULLIF(e.middle_name, ''), e.last_name) LIKE :q4 OR lr.reason LIKE :q5)";
                 $searchValue = '%' . $filters['q'] . '%';
                 $params['q1'] = $searchValue;
                 $params['q2'] = $searchValue;
                 $params['q3'] = $searchValue;
                 $params['q4'] = $searchValue;
+                $params['q5'] = $searchValue;
             }
         }
         // Date range filters
@@ -146,7 +147,7 @@ final class LeaveService
         }
 
         $before = $record;
-        $stmt = Database::connection()->prepare("UPDATE leave_requests SET status = 'Cancelled' WHERE id = ? AND status = 'Pending'");
+        $stmt = Database::connection()->prepare("UPDATE leave_requests SET status = 'Cancelled', admin_remarks = '' WHERE id = ? AND status = 'Pending'");
         $stmt->execute([$id]);
         (new AuditService())->log('LEAVE_CANCELLED', 'leaves', $id, $before, $this->find($id));
     }

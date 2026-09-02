@@ -449,16 +449,22 @@ final class AttendanceExcelReportService
 
     /**
      * Build a descriptive filename.
-     * e.g.  Attendance_Report_2026-07_01-15.xlsx
-     *        Attendance_Report_2026-07_16-31.xlsx
+     * e.g.  CompanyName_Report_2026-07_01-15.xlsx
+     *        CompanyName_Report_2026-07_16-31.xlsx
      */
     private function buildFilename(string $dateFrom, string $dateTo): string
     {
+        // Get From Name from email settings
+        $fromName = (new SettingsService())->get('smtp_from_name', 'Attendance');
+        // Sanitize the name for filename (remove special characters, replace spaces with underscores)
+        $fromName = preg_replace('/[^a-zA-Z0-9\s]/', '', $fromName);
+        $fromName = trim(str_replace(' ', '_', $fromName));
+        
         // Extract year-month and day ranges
         $ym      = date('Y-m', strtotime($dateFrom));  // 2026-07
         $dayFrom = date('d',   strtotime($dateFrom));  // 01
         $dayTo   = date('d',   strtotime($dateTo));    // 15
 
-        return "Attendance_Report_{$ym}_{$dayFrom}-{$dayTo}.xlsx";
+        return "{$fromName}_Report_{$ym}_{$dayFrom}-{$dayTo}.xlsx";
     }
 }

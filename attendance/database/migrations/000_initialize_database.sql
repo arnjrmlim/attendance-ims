@@ -387,7 +387,7 @@ CREATE TABLE `attendance_corrections` (
   `employee_id` CHAR(36) NOT NULL,
   `attendance_id` CHAR(36) DEFAULT NULL,
   `attendance_date` DATE NOT NULL,
-  `correction_type` ENUM('Forgot Time In','Forgot Time Out','Incorrect Attendance','Wrong Attendance Method') NOT NULL,
+  `correction_type` ENUM('Forgot Time In','Forgot Time Out','Incorrect Attendance','Wrong Attendance Method','Official Business') NOT NULL,
   `original_time_in` DATETIME DEFAULT NULL,
   `original_time_out` DATETIME DEFAULT NULL,
   `requested_time_in` DATETIME DEFAULT NULL,

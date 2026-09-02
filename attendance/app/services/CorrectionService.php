@@ -9,7 +9,7 @@ use InvalidArgumentException;
 
 final class CorrectionService
 {
-    public const TYPES = ['Forgot Time In', 'Forgot Time Out', 'Incorrect Attendance', 'Wrong Attendance Method'];
+    public const TYPES = ['Forgot Time In', 'Forgot Time Out', 'Incorrect Attendance', 'Wrong Attendance Method', 'Official Business'];
 
     public function list(array $filters, bool $ownOnly = false, ?string $employeeId = null): array
     {
@@ -23,13 +23,31 @@ final class CorrectionService
             $where[] = 'ac.status = :status';
             $params['status'] = $filters['status'];
         }
+        if (!empty($filters['correction_type'])) {
+            $where[] = 'ac.correction_type = :correction_type';
+            $params['correction_type'] = $filters['correction_type'];
+        }
         if (!empty($filters['q'])) {
-            $where[] = "(e.employee_number LIKE :q1 OR e.first_name LIKE :q2 OR e.last_name LIKE :q3 OR ac.reason LIKE :q4)";
             $searchValue = '%' . $filters['q'] . '%';
-            $params['q1'] = $searchValue;
-            $params['q2'] = $searchValue;
-            $params['q3'] = $searchValue;
-            $params['q4'] = $searchValue;
+            if ($ownOnly) {
+                $where[] = 'ac.reason LIKE :q';
+                $params['q'] = $searchValue;
+            } else {
+                $where[] = "(e.employee_number LIKE :q1 OR e.first_name LIKE :q2 OR e.last_name LIKE :q3 OR CONCAT_WS(' ', e.first_name, NULLIF(e.middle_name, ''), e.last_name) LIKE :q4 OR ac.reason LIKE :q5)";
+                $params['q1'] = $searchValue;
+                $params['q2'] = $searchValue;
+                $params['q3'] = $searchValue;
+                $params['q4'] = $searchValue;
+                $params['q5'] = $searchValue;
+            }
+        }
+        if (!empty($filters['start_date'])) {
+            $where[] = 'ac.attendance_date >= :start_date';
+            $params['start_date'] = $filters['start_date'];
+        }
+        if (!empty($filters['end_date'])) {
+            $where[] = 'ac.attendance_date <= :end_date';
+            $params['end_date'] = $filters['end_date'];
         }
         $sql = 'SELECT ac.*, e.employee_number, CONCAT(e.first_name, " ", e.last_name) AS employee_name
                 FROM attendance_corrections ac INNER JOIN employees e ON e.id = ac.employee_id';
@@ -49,6 +67,12 @@ final class CorrectionService
         }
         if (!in_array($data['correction_type'] ?? '', self::TYPES, true)) {
             throw new InvalidArgumentException('Invalid correction type.');
+        }
+        if ($data['correction_type'] === 'Forgot Time In' && empty($data['requested_time_in'])) {
+            throw new InvalidArgumentException('Requested time in is required for a Forgot Time In correction.');
+        }
+        if ($data['correction_type'] === 'Forgot Time Out' && empty($data['requested_time_out'])) {
+            throw new InvalidArgumentException('Requested time out is required for a Forgot Time Out correction.');
         }
         if ($this->hasPending($data['employee_id'], $data['attendance_date'], $data['attendance_id'] ?? null)) {
             throw new InvalidArgumentException('A pending correction already exists for this attendance record or date.');
@@ -97,6 +121,28 @@ final class CorrectionService
         if (!empty($after['user_id'])) {
             (new NotificationService())->notify($after['user_id'], 'Correction ' . $status, 'Your correction request has been ' . strtolower($status) . '.', $status === 'Approved' ? 'success' : 'danger');
         }
+    }
+
+    public function cancel(string $id): void
+    {
+        $record = $this->find($id);
+        if (!$record) {
+            throw new InvalidArgumentException('Correction request not found.');
+        }
+
+        // Non-admin/hr users can only cancel their own requests.
+        $user = current_user();
+        if (!in_array($user['role_slug'] ?? '', ['administrator', 'hr'], true)
+            && ($user['employee_id'] ?? null) !== $record['employee_id']) {
+            throw new InvalidArgumentException('You are not authorised to cancel this correction request.');
+        }
+
+        $before = $record;
+        $stmt = Database::connection()->prepare(
+            "UPDATE attendance_corrections SET status = 'Cancelled', admin_remarks = '' WHERE id = ? AND status = 'Pending'"
+        );
+        $stmt->execute([$id]);
+        (new AuditService())->log('CORRECTION_CANCELLED', 'corrections', $id, $before, $this->find($id));
     }
 
     public function find(string $id): ?array

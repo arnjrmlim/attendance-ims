@@ -85,6 +85,15 @@ final class LeaveController extends BaseController
         redirect('leaves');
     }
 
+    public function attachment(): void
+    {
+        require_login();
+
+        $request = (new LeaveService())->find((string) ($_GET['id'] ?? ''));
+        $this->authorizeAttachment($request);
+        $this->streamAttachment($request['attachment'] ?? null);
+    }
+
     private function review(string $status): void
     {
         require_role(['administrator', 'hr']);
@@ -93,12 +102,41 @@ final class LeaveController extends BaseController
             (new LeaveService())->transition(
                 (string) ($_POST['id'] ?? ''),
                 $status,
-                (string) ($_POST['admin_remarks'] ?? '')
+                $status === 'Approved' ? '' : (string) ($_POST['admin_remarks'] ?? '')
             );
             flash('success', 'Leave request ' . strtolower($status) . '.');
         } catch (Throwable $exception) {
             flash('error', $exception->getMessage());
         }
         redirect('leaves');
+    }
+
+    private function streamAttachment(?string $attachment): never
+    {
+        $filename = basename((string) $attachment);
+        $path = rtrim((string) config('upload_path'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $filename;
+
+        if ($filename === '' || !is_file($path)) {
+            http_response_code(404);
+            exit('Attachment not found.');
+        }
+
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path) ?: 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . (string) filesize($path));
+        header('Content-Disposition: inline; filename="' . $filename . '"');
+        header('X-Content-Type-Options: nosniff');
+        readfile($path);
+        exit;
+    }
+
+    private function authorizeAttachment(?array $request): void
+    {
+        $user = current_user();
+        $canViewAll = has_role(['administrator', 'hr']);
+        if (!$request || (!$canViewAll && ($user['employee_id'] ?? null) !== $request['employee_id'])) {
+            http_response_code(403);
+            exit('You do not have permission to view this attachment.');
+        }
     }
 }
