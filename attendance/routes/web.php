@@ -50,6 +50,9 @@ $router->post('/leaves/approve', [LeaveController::class, 'approve']);
 $router->post('/leaves/reject', [LeaveController::class, 'reject']);
 $router->post('/leaves/cancel', [LeaveController::class, 'cancel']);
 $router->get('/leaves/attachment', [LeaveController::class, 'attachment']);
+$router->get('/leaves/download', [LeaveController::class, 'download']);
+$router->get('/leaves/print-row', [LeaveController::class, 'printRow']);
+$router->get('/leaves/print-bulk', [LeaveController::class, 'printBulk']);
 
 $router->get('/corrections', [AttendanceCorrectionController::class, 'index']);
 $router->post('/corrections', [AttendanceCorrectionController::class, 'store']);
@@ -57,6 +60,9 @@ $router->post('/corrections/approve', [AttendanceCorrectionController::class, 'a
 $router->post('/corrections/reject', [AttendanceCorrectionController::class, 'reject']);
 $router->post('/corrections/cancel', [AttendanceCorrectionController::class, 'cancel']);
 $router->get('/corrections/attachment', [AttendanceCorrectionController::class, 'attachment']);
+$router->get('/corrections/download', [AttendanceCorrectionController::class, 'download']);
+$router->get('/corrections/print-row', [AttendanceCorrectionController::class, 'printRow']);
+$router->get('/corrections/print-bulk', [AttendanceCorrectionController::class, 'printBulk']);
 
 $router->get('/attendance-monitoring', [AttendanceMonitoringController::class, 'index']);
 $router->get('/reports', [ReportController::class, 'index']);

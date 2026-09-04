@@ -94,6 +94,15 @@ final class LeaveController extends BaseController
         $this->streamAttachment($request['attachment'] ?? null);
     }
 
+    public function download(): void
+    {
+        require_login();
+
+        $request = (new LeaveService())->find((string) ($_GET['id'] ?? ''));
+        $this->authorizeAttachment($request);
+        $this->downloadAttachment($request['attachment'] ?? null);
+    }
+
     private function review(string $status): void
     {
         require_role(['administrator', 'hr']);
@@ -130,6 +139,25 @@ final class LeaveController extends BaseController
         exit;
     }
 
+    private function downloadAttachment(?string $attachment): never
+    {
+        $filename = basename((string) $attachment);
+        $path = rtrim((string) config('upload_path'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $filename;
+
+        if ($filename === '' || !is_file($path)) {
+            http_response_code(404);
+            exit('Attachment not found.');
+        }
+
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path) ?: 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . (string) filesize($path));
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('X-Content-Type-Options: nosniff');
+        readfile($path);
+        exit;
+    }
+
     private function authorizeAttachment(?array $request): void
     {
         $user = current_user();
@@ -138,5 +166,71 @@ final class LeaveController extends BaseController
             http_response_code(403);
             exit('You do not have permission to view this attachment.');
         }
+    }
+
+    public function printRow(): void
+    {
+        require_login();
+        $id = (string) ($_GET['id'] ?? '');
+        $request = (new LeaveService())->find($id);
+        
+        if (!$request) {
+            http_response_code(404);
+            exit('Leave request not found.');
+        }
+
+        $user = current_user();
+        $canViewAll = has_role(['administrator', 'hr']);
+        if (!$canViewAll && ($user['employee_id'] ?? null) !== $request['employee_id']) {
+            http_response_code(403);
+            exit('You do not have permission to view this leave request.');
+        }
+
+        // Return JSON for AJAX requests
+        if (!empty($_GET['json'])) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'request' => $request,
+                'isAdminHr' => $canViewAll,
+            ]);
+            exit;
+        }
+
+        $this->render('leaves/print-row', [
+            'request' => $request,
+            'isAdminHr' => $canViewAll,
+        ]);
+    }
+
+    public function printBulk(): void
+    {
+        require_login();
+        $isAdminHr = has_role(['administrator', 'hr']);
+        $user = current_user();
+        $employeeId = $user['employee_id'] ?? null;
+        $ownOnly = !$isAdminHr;
+
+        $service = new LeaveService();
+        $rows = $service->list($_GET, $ownOnly, $ownOnly ? $employeeId : null);
+
+        // Return JSON for AJAX requests
+        if (!empty($_GET['json'])) {
+            header('Content-Type: application/json');
+            $cfg = new \App\Services\SettingsService();
+            echo json_encode([
+                'rows' => $rows,
+                'filters' => $_GET,
+                'isAdminHr' => $isAdminHr,
+                'companyLogo' => asset_url($cfg->getCompanyLogo()),
+                'companyName' => $cfg->getCompanyName(),
+            ]);
+            exit;
+        }
+
+        $this->render('leaves/print-bulk', [
+            'rows' => $rows,
+            'filters' => $_GET,
+            'isAdminHr' => $isAdminHr,
+        ]);
     }
 }

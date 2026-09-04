@@ -19,8 +19,25 @@ $companyAbbreviation = $cfg->getCompanyAbbreviation();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="<?= url('assets/css/app.css') ?>" rel="stylesheet">
+    <style>
+    @media print {
+        body > *:not(#print-container) {
+            display: none !important;
+        }
+        #print-container {
+            display: block !important;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            z-index: 9999;
+        }
+    }
+    </style>
 </head>
 <body>
+<div id="print-container" style="display: none;"></div>
 <?php if ($user): ?>
 <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
     <div class="container-fluid">

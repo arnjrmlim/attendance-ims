@@ -104,6 +104,11 @@ final class LeaveService
 
         (new AuditService())->log('LEAVE_SUBMITTED', 'leaves', $id, null, $data);
         (new NotificationService())->notifyRoles(['administrator', 'hr'], 'Leave Request Submitted', 'A new leave request is pending review.', 'warning');
+        
+        // Send email notification after successful save
+        $leaveData = array_merge($data, ['number_of_days' => $days]);
+        (new EmailService())->sendLeaveRequestNotification($leaveData, $id);
+        
         return $id;
     }
 
@@ -155,8 +160,11 @@ final class LeaveService
     public function find(string $id): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT lr.*, u.id AS user_id FROM leave_requests lr
-             LEFT JOIN users u ON u.employee_id = lr.employee_id WHERE lr.id = ?'
+            'SELECT lr.*, e.employee_number, CONCAT(e.first_name, " ", e.last_name) AS employee_name, u.id AS user_id 
+             FROM leave_requests lr
+             INNER JOIN employees e ON e.id = lr.employee_id
+             LEFT JOIN users u ON u.employee_id = lr.employee_id 
+             WHERE lr.id = ?'
         );
         $stmt->execute([$id]);
         return $stmt->fetch() ?: null;
@@ -164,8 +172,8 @@ final class LeaveService
 
     private function validate(array $data): void
     {
-        if (empty($data['employee_id']) || empty($data['start_date']) || empty($data['end_date']) || empty($data['reason'])) {
-            throw new InvalidArgumentException('Employee, dates and reason are required.');
+        if (empty($data['employee_id']) || empty($data['start_date']) || empty($data['end_date'])) {
+            throw new InvalidArgumentException('Employee and dates are required.');
         }
         if (!in_array($data['leave_type'] ?? '', self::TYPES, true)) {
             throw new InvalidArgumentException('Invalid leave type.');

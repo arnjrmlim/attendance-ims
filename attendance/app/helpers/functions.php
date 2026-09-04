@@ -178,7 +178,7 @@ if (!function_exists('pagination_meta')) {
 }
 
 if (!function_exists('save_upload')) {
-    function save_upload(string $field, array $allowed = ['pdf', 'jpg', 'jpeg', 'png']): ?string
+    function save_upload(string $field, array $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'webp']): ?string
     {
         if (empty($_FILES[$field]['name']) || ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
             return null;
@@ -194,7 +194,23 @@ if (!function_exists('save_upload')) {
 
         $extension = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
         if (!in_array($extension, $allowed, true)) {
-            throw new RuntimeException('Unsupported attachment type.');
+            throw new RuntimeException('Invalid file type. Only JPG, JPEG, PNG, WEBP, and PDF files are allowed.');
+        }
+
+        // Validate MIME type to prevent spoofing
+        $allowedMimes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+        ];
+        
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $detectedMime = $finfo->file($_FILES[$field]['tmp_name']);
+        
+        if (!isset($allowedMimes[$extension]) || $detectedMime !== $allowedMimes[$extension]) {
+            throw new RuntimeException('Invalid file type. Only JPG, JPEG, PNG, WEBP, and PDF files are allowed.');
         }
 
         $uploadDir = rtrim((string) config('upload_path'), DIRECTORY_SEPARATOR);

@@ -314,58 +314,68 @@ final class AttendanceEngine
         $otIn     = $official[self::TYPE_OT_IN]     ?? null;
         $otOut    = $official[self::TYPE_OT_OUT]    ?? null;
 
-        // ── Break duration ────────────────────────────────────────────
+        // ── Break duration (actual employee break only) ───────────────
         $breakMinutes = 0;
         if ($breakOut && $breakIn) {
             $diff = (int) round((strtotime($breakIn) - strtotime($breakOut)) / 60);
             $breakMinutes = max(0, $diff);
         }
 
-        // ── Overtime duration ─────────────────────────────────────────
-        $overtimeMinutes = 0;
-        if ($otIn && $otOut) {
-            $diff = (int) round((strtotime($otOut) - strtotime($otIn)) / 60);
-            $overtimeMinutes = max(0, $diff);
-        }
-
-        // ── Total regular hours ───────────────────────────────────────
-        $totalHours = null;
+        // ── Worked minutes (actual time worked) ───────────────────────
+        $workedMinutes = 0;
         if ($timeIn && $timeOut) {
-            $grossSeconds  = strtotime($timeOut) - strtotime($timeIn);
-            $netSeconds    = $grossSeconds - ($breakMinutes * 60);
-            $totalHours    = round(max(0, $netSeconds) / 3600, 2);
+            $grossSeconds = strtotime($timeOut) - strtotime($timeIn);
+            $netSeconds = $grossSeconds - ($breakMinutes * 60);
+            $workedMinutes = (int) round(max(0, $netSeconds) / 60);
         }
 
-        // ── Late / undertime  (requires shift) ───────────────────────
-        $lateMinutes      = 0;
-        $undertimeMinutes = 0;
-        $isLate           = false;
+        // ── Total hours (from worked minutes) ─────────────────────────
+        $totalHours = null;
+        if ($workedMinutes > 0) {
+            $totalHours = round($workedMinutes / 60, 2);
+        }
+
+        // ── Late minutes (requires shift) ────────────────────────────
+        $lateMinutes = 0;
+        $isLate = false;
 
         if ($shift && $timeIn) {
-            $shiftStart  = strtotime($date . ' ' . $shift['time_in']);
+            $shiftStart = strtotime($date . ' ' . $shift['time_in']);
             $gracePeriod = (int) ($shift['grace_period_minutes'] ?? 15);
-            $tapIn       = strtotime($timeIn);
+            $tapIn = strtotime($timeIn);
 
             if ($tapIn > $shiftStart) {
-                $rawLate  = (int) round(($tapIn - $shiftStart) / 60);
+                $rawLate = (int) round(($tapIn - $shiftStart) / 60);
                 $lateMinutes = max(0, $rawLate - $gracePeriod);
-                $isLate      = $lateMinutes > 0;
+                $isLate = $lateMinutes > 0;
             }
+        }
 
-            // Undertime: time_out before shift end
-            if ($shift && $timeOut) {
-                $shiftInTime  = strtotime($date . ' ' . $shift['time_in']);
-                $shiftOutTime = strtotime($date . ' ' . $shift['time_out']);
-                
-                // Handle overnight shifts: if shift_out < shift_in, shift ends next day
-                if ($shiftOutTime < $shiftInTime) {
-                    $shiftOutTime = strtotime('+1 day', $shiftOutTime);
-                }
-                
-                $tapOut = strtotime($timeOut);
-                if ($tapOut < $shiftOutTime) {
-                    $undertimeMinutes = (int) round(($shiftOutTime - $tapOut) / 60);
-                }
+        // ── Undertime minutes (based on required hours) ───────────────
+        $undertimeMinutes = 0;
+        if ($shift && $workedMinutes > 0) {
+            $requiredMinutes = (int) (($shift['required_hours'] ?? 8) * 60);
+            $undertimeMinutes = max(0, $requiredMinutes - $workedMinutes);
+        }
+
+        // ── Overtime minutes (only beyond scheduled shift end) ────────
+        $overtimeMinutes = 0;
+        if ($otIn && $otOut && $shift) {
+            $shiftOutTime = strtotime($date . ' ' . $shift['time_out']);
+            $shiftInTime = strtotime($date . ' ' . $shift['time_in']);
+            
+            // Handle overnight shifts: if shift_out < shift_in, shift ends next day
+            if ($shiftOutTime < $shiftInTime) {
+                $shiftOutTime = strtotime('+1 day', $shiftOutTime);
+            }
+            
+            $otInTimestamp = strtotime($otIn);
+            $otOutTimestamp = strtotime($otOut);
+            
+            // Only count overtime that starts at or after shift end
+            $otStart = max($otInTimestamp, $shiftOutTime);
+            if ($otStart < $otOutTimestamp) {
+                $overtimeMinutes = (int) round(($otOutTimestamp - $otStart) / 60);
             }
         }
 

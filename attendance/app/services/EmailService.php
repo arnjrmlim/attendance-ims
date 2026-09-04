@@ -284,6 +284,280 @@ final class EmailService
         return ['success' => $ok['ok'], 'error' => $ok['error'] ?? ''];
     }
 
+    /**
+     * Send notification email for new leave request.
+     * Uses the configured recipient, CC, and BCC from Email Settings.
+     * Email failure does not affect the request save operation.
+     */
+    public function sendLeaveRequestNotification(array $leaveData, string $requestId): void
+    {
+        try {
+            $recipient = (string) $this->cfg->get('email_report_recipient', '');
+            $cc = (string) $this->cfg->get('email_report_cc', '');
+            $bcc = (string) $this->cfg->get('email_report_bcc', '');
+            
+            if (empty($recipient) && empty($cc) && empty($bcc)) {
+                error_log('Leave request notification skipped: No recipient configured in Email Settings.');
+                return;
+            }
+
+            $companyAbbreviation = (new SettingsService())->getCompanyAbbreviation();
+            $companyName = (new SettingsService())->getCompanyName();
+            
+            // Get employee details
+            $stmt = Database::connection()->prepare(
+                'SELECT e.employee_number, e.first_name, e.middle_name, e.last_name, 
+                        e.department_id, e.branch_id, d.name as department_name, b.name as branch_name
+                 FROM employees e
+                 LEFT JOIN departments d ON d.id = e.department_id
+                 LEFT JOIN branches b ON b.id = e.branch_id
+                 WHERE e.id = ?'
+            );
+            $stmt->execute([$leaveData['employee_id']]);
+            $employee = $stmt->fetch();
+
+            if (!$employee) {
+                error_log('Leave request notification failed: Employee not found.');
+                return;
+            }
+
+            $employeeName = trim($employee['first_name'] . ' ' . ($employee['middle_name'] ?? '') . ' ' . $employee['last_name']);
+            $subject = "[{$companyAbbreviation}] New Leave Request - {$employeeName}";
+            
+            $body = $this->buildLeaveEmailBody($companyName, $employee, $leaveData, $requestId);
+            
+            // Queue and deliver the email with CC and BCC support
+            $logId = $this->queueWithPeriod($recipient ?: $cc, $subject, $body, null, 'Leave Request', null, null);
+            $this->deliverLogWithBcc($logId, $recipient ?: '', $cc, array_filter(array_map('trim', explode(',', implode(',', [$recipient, $cc, $bcc])))), $subject, $body, null);
+            
+        } catch (\Throwable $e) {
+            error_log('Leave request notification failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send notification email for new attendance correction request.
+     * Uses the configured recipient, CC, and BCC from Email Settings.
+     * Email failure does not affect the request save operation.
+     */
+    public function sendCorrectionRequestNotification(array $correctionData, string $requestId): void
+    {
+        try {
+            $recipient = (string) $this->cfg->get('email_report_recipient', '');
+            $cc = (string) $this->cfg->get('email_report_cc', '');
+            $bcc = (string) $this->cfg->get('email_report_bcc', '');
+            
+            if (empty($recipient) && empty($cc) && empty($bcc)) {
+                error_log('Correction request notification skipped: No recipient configured in Email Settings.');
+                return;
+            }
+
+            $companyAbbreviation = (new SettingsService())->getCompanyAbbreviation();
+            $companyName = (new SettingsService())->getCompanyName();
+            
+            // Debug: Log the raw correction data
+            error_log('DEBUG EmailService - Raw correction data: ' . json_encode($correctionData));
+            
+            // Get employee details
+            $stmt = Database::connection()->prepare(
+                'SELECT e.employee_number, e.first_name, e.middle_name, e.last_name, 
+                        e.department_id, e.branch_id, d.name as department_name, b.name as branch_name
+                 FROM employees e
+                 LEFT JOIN departments d ON d.id = e.department_id
+                 LEFT JOIN branches b ON b.id = e.branch_id
+                 WHERE e.id = ?'
+            );
+            $stmt->execute([$correctionData['employee_id']]);
+            $employee = $stmt->fetch();
+
+            if (!$employee) {
+                error_log('Correction request notification failed: Employee not found.');
+                return;
+            }
+
+            $employeeName = trim($employee['first_name'] . ' ' . ($employee['middle_name'] ?? '') . ' ' . $employee['last_name']);
+            $subject = "[{$companyAbbreviation}] New Attendance Correction Request - {$employeeName}";
+            
+            $body = $this->buildCorrectionEmailBody($companyName, $employee, $correctionData, $requestId);
+            
+            // Queue and deliver the email with CC and BCC support
+            $logId = $this->queueWithPeriod($recipient ?: $cc, $subject, $body, null, 'Correction Request', null, null);
+            $this->deliverLogWithBcc($logId, $recipient ?: '', $cc, array_filter(array_map('trim', explode(',', implode(',', [$recipient, $cc, $bcc])))), $subject, $body, null);
+            
+        } catch (\Throwable $e) {
+            error_log('Correction request notification failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Build HTML email body for leave request notification.
+     */
+    private function buildLeaveEmailBody(string $companyName, array $employee, array $leaveData, string $requestId): string
+    {
+        $employeeName = htmlspecialchars(trim($employee['first_name'] . ' ' . ($employee['middle_name'] ?? '') . ' ' . $employee['last_name']));
+        $employeeNumber = htmlspecialchars($employee['employee_number'] ?? '');
+        $department = htmlspecialchars($employee['department_name'] ?? 'N/A');
+        $branch = htmlspecialchars($employee['branch_name'] ?? 'N/A');
+        $leaveType = htmlspecialchars($leaveData['leave_type'] ?? '');
+        $startDate = htmlspecialchars($leaveData['start_date'] ?? '');
+        $endDate = htmlspecialchars($leaveData['end_date'] ?? '');
+        $numberOfDays = htmlspecialchars((string) ($leaveData['number_of_days'] ?? ''));
+        $reason = htmlspecialchars($leaveData['reason'] ?? '');
+        $submittedAt = date('Y-m-d H:i:s');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>New Leave Request</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #1a56db; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9fafb; padding: 20px; border-radius: 5px; margin-top: 20px; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #1a56db; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>New Leave Request Submitted</h2>
+    </div>
+    <div class="content">
+        <p>A new leave request has been submitted and requires your review.</p>
+        <table>
+            <tr><td class="label">Request ID:</td><td>{$requestId}</td></tr>
+            <tr><td class="label">Employee Name:</td><td>{$employeeName}</td></tr>
+            <tr><td class="label">Employee ID:</td><td>{$employeeNumber}</td></tr>
+            <tr><td class="label">Department:</td><td>{$department}</td></tr>
+            <tr><td class="label">Branch:</td><td>{$branch}</td></tr>
+            <tr><td class="label">Leave Type:</td><td>{$leaveType}</td></tr>
+            <tr><td class="label">Start Date:</td><td>{$startDate}</td></tr>
+            <tr><td class="label">End Date:</td><td>{$endDate}</td></tr>
+            <tr><td class="label">Number of Days:</td><td>{$numberOfDays}</td></tr>
+            <tr><td class="label">Reason:</td><td>{$reason}</td></tr>
+            <tr><td class="label">Status:</td><td>Pending</td></tr>
+            <tr><td class="label">Submitted:</td><td>{$submittedAt}</td></tr>
+        </table>
+        <p style="margin-top: 20px;">Please log in to the Attendance System to review and process this request.</p>
+    </div>
+    <div class="footer">
+        <p>This is an automated notification from {$companyName} — Attendance Management Portal.</p>
+    </div>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * Build HTML email body for correction request notification.
+     */
+    private function buildCorrectionEmailBody(string $companyName, array $employee, array $correctionData, string $requestId): string
+    {
+        $employeeName = htmlspecialchars(trim($employee['first_name'] . ' ' . ($employee['middle_name'] ?? '') . ' ' . $employee['last_name']));
+        $employeeNumber = htmlspecialchars($employee['employee_number'] ?? '');
+        $department = htmlspecialchars($employee['department_name'] ?? 'N/A');
+        $branch = htmlspecialchars($employee['branch_name'] ?? 'N/A');
+        $correctionType = htmlspecialchars($correctionData['correction_type'] ?? '');
+        $attendanceDate = htmlspecialchars($correctionData['attendance_date'] ?? '');
+        
+        // Format time values - extract date and time from datetime format
+        $formatTime = function($time) {
+            if (empty($time)) return '';
+            error_log('DEBUG formatTime - Input: ' . $time);
+            if (strlen($time) > 5 && str_contains($time, 'T')) {
+                $parts = explode('T', $time);
+                $result = $parts[0] . ' ' . substr($parts[1], 0, 5);
+                error_log('DEBUG formatTime - Output (T format): ' . $result);
+                return $result;
+            }
+            if (strlen($time) > 5 && str_contains($time, ' ')) {
+                $parts = explode(' ', $time);
+                $result = $parts[0] . ' ' . substr($parts[1], 0, 5);
+                error_log('DEBUG formatTime - Output (space format): ' . $result);
+                return $result;
+            }
+            // If only time is provided, return just the time
+            $result = substr($time, 0, 5);
+            error_log('DEBUG formatTime - Output (time only): ' . $result);
+            return $result;
+        };
+        
+        $originalTimeIn = $formatTime($correctionData['original_time_in'] ?? '');
+        $originalTimeOut = $formatTime($correctionData['original_time_out'] ?? '');
+        $requestedTimeIn = $formatTime($correctionData['requested_time_in'] ?? '');
+        $requestedTimeOut = $formatTime($correctionData['requested_time_out'] ?? '');
+        
+        $reason = htmlspecialchars($correctionData['reason'] ?? '');
+        $submittedAt = date('Y-m-d H:i:s');
+
+        // Build table rows conditionally
+        $rows = '';
+        $rows .= "<tr><td class=\"label\">Request ID:</td><td>{$requestId}</td></tr>";
+        $rows .= "<tr><td class=\"label\">Employee Name:</td><td>{$employeeName}</td></tr>";
+        $rows .= "<tr><td class=\"label\">Employee ID:</td><td>{$employeeNumber}</td></tr>";
+        $rows .= "<tr><td class=\"label\">Department:</td><td>{$department}</td></tr>";
+        $rows .= "<tr><td class=\"label\">Branch:</td><td>{$branch}</td></tr>";
+        $rows .= "<tr><td class=\"label\">Correction Type:</td><td>{$correctionType}</td></tr>";
+        
+        // Only show original times if they have values
+        if (!empty($originalTimeIn)) {
+            $rows .= "<tr><td class=\"label\">Original Time In:</td><td>{$originalTimeIn}</td></tr>";
+        }
+        if (!empty($originalTimeOut)) {
+            $rows .= "<tr><td class=\"label\">Original Time Out:</td><td>{$originalTimeOut}</td></tr>";
+        }
+        
+        if (!empty($requestedTimeIn)) {
+            $rows .= "<tr><td class=\"label\">Requested Time In:</td><td>{$requestedTimeIn}</td></tr>";
+        }
+        if (!empty($requestedTimeOut)) {
+            $rows .= "<tr><td class=\"label\">Requested Time Out:</td><td>{$requestedTimeOut}</td></tr>";
+        }
+        
+        $rows .= "<tr><td class=\"label\">Reason:</td><td>{$reason}</td></tr>";
+        $rows .= "<tr><td class=\"label\">Status:</td><td>Pending</td></tr>";
+        $rows .= "<tr><td class=\"label\">Submitted:</td><td>{$submittedAt}</td></tr>";
+
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>New Attendance Correction Request</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #1a56db; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9fafb; padding: 20px; border-radius: 5px; margin-top: 20px; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #1a56db; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>New Attendance Correction Request Submitted</h2>
+    </div>
+    <div class="content">
+        <p>A new attendance correction request has been submitted and requires your review.</p>
+        <table>
+            {$rows}
+        </table>
+        <p style="margin-top: 20px;">Please log in to the Attendance System to review and process this request.</p>
+    </div>
+    <div class="footer">
+        <p>This is an automated notification from {$companyName} — Attendance Management Portal.</p>
+    </div>
+</body>
+</html>
+HTML;
+    }
+
     /* ── Internal ────────────────────────────────────────────── */
 
     private function deliverLog(
