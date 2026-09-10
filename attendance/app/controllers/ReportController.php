@@ -30,43 +30,13 @@ final class ReportController extends BaseController
     {
         require_role(['administrator', 'hr']);
 
-        $format = strtolower((string) ($_GET['format'] ?? 'csv'));
+        $format = strtolower((string) ($_GET['format'] ?? 'xlsx'));
         $rows   = (new ReportService())->rows($_GET);
-
-        if ($format === 'pdf') {
-            header('Content-Type: text/html; charset=utf-8');
-            echo '<script>window.print()</script>';
-            $this->index();
-            return;
-        }
 
         if ($format === 'xlsx') {
             $this->exportExcel($rows);
             return;
         }
-
-        // CSV fallback
-        header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="attendance-report.csv"');
-        $out = fopen('php://output', 'wb');
-        fputcsv($out, ['Employee No', 'Employee', 'Department', 'Branch', 'Date',
-                       'Status', 'Time In', 'Time Out', 'Late', 'Undertime', 'Hours']);
-        foreach ($rows as $row) {
-            fputcsv($out, [
-                $row['employee_number'],
-                $row['employee_name'],
-                $row['department_name'],
-                $row['branch_name'],
-                $row['display_date'],
-                $row['day_status'],
-                $row['time_in'],
-                $row['time_out'],
-                $row['late_minutes'],
-                $row['undertime_minutes'],
-                $row['total_hours'],
-            ]);
-        }
-        fclose($out);
     }
 
     /**

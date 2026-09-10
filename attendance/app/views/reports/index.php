@@ -1,6 +1,6 @@
 <div class="page-head">
     <div><h1 class="h3 mb-1">Reports</h1><div class="text-muted">Professional attendance, late, absent, leave and holiday reporting.</div></div>
-    <div class="btn-group no-print"><a class="btn btn-outline-success" href="<?= url('reports/export?' . http_build_query(array_merge($_GET, ['format' => 'csv']))) ?>">CSV</a><a class="btn btn-outline-success" href="<?= url('reports/export?' . http_build_query(array_merge($_GET, ['format' => 'xlsx']))) ?>">Excel</a><a class="btn btn-outline-danger" href="<?= url('reports/export?' . http_build_query(array_merge($_GET, ['format' => 'pdf']))) ?>">PDF</a><button class="btn btn-dark" onclick="window.print()">Print</button></div>
+    <div class="btn-group no-print"><a class="btn btn-outline-success" href="<?= url('reports/export?' . http_build_query(array_merge($_GET, ['format' => 'xlsx']))) ?>">Excel</a><button class="btn btn-dark" onclick="printReport()">Print</button></div>
 </div>
 <form class="panel p-3 mb-3 row g-2 no-print">
     <div class="col-md-2"><input class="form-control" type="text" name="q" placeholder="Employee number or name" value="<?= e($_GET['q'] ?? '') ?>"></div>
@@ -15,7 +15,7 @@ $cfg = new \App\Services\SettingsService();
 $companyLogo = $cfg->getCompanyLogo();
 $companyName = $cfg->getCompanyName();
 ?>
-<div class="panel p-4">
+<div class="panel p-4" id="report-content">
     <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
         <div class="d-flex align-items-center gap-3"><img src="<?= asset_url($companyLogo) ?>" width="52" height="52" alt="IMS"><div><h2 class="h4 mb-0"><?= e($companyName) ?></h2><div class="text-muted">Generated <?= e(date('Y-m-d H:i')) ?> by <?= e(current_user()['username']) ?></div><div class="text-muted">Period: <?= e($period) ?></div></div></div>
         <div class="text-end text-muted">Page 1</div>
@@ -24,3 +24,36 @@ $companyName = $cfg->getCompanyName();
     <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Date</th><th>Employee</th><th>Department</th><th>Branch</th><th>Status</th><th>Late</th><th>Undertime</th><th>Hours</th></tr></thead><tbody><?php foreach ($rows as $row): ?><tr><td><?= e($row['display_date']) ?></td><td><?= e($row['employee_name']) ?></td><td><?= e($row['department_name']) ?></td><td><?= e($row['branch_name']) ?></td><td><?= e($row['day_status']) ?></td><td><?= e($row['late_minutes']) ?></td><td><?= e($row['undertime_minutes']) ?></td><td><?= e($row['total_hours']) ?></td></tr><?php endforeach; ?></tbody></table></div>
     <footer class="border-top pt-3 text-muted small">Totals are based on the selected filters. Exported files include the same report period and generated-by context.</footer>
 </div>
+
+<style>
+@media print {
+    body > *:not(#print-container) {
+        display: none !important;
+    }
+    #print-container {
+        display: block !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background: white;
+        z-index: 9999;
+    }
+}
+</style>
+
+<script>
+function printReport() {
+    const reportContent = document.getElementById('report-content').outerHTML;
+    const container = document.getElementById('print-container');
+    container.innerHTML = reportContent;
+    window.print();
+}
+
+window.addEventListener('afterprint', function() {
+    const container = document.getElementById('print-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+});
+</script>
