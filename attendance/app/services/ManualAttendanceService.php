@@ -208,6 +208,21 @@ final class ManualAttendanceService
             return ['success' => false, 'error' => 'Employee, date and reason are required.'];
         }
 
+        // Check if employee is active
+        $stmt = Database::connection()->prepare(
+            "SELECT status FROM employees WHERE id = ?"
+        );
+        $stmt->execute([$employeeId]);
+        $employee = $stmt->fetch();
+        
+        if (!$employee) {
+            return ['success' => false, 'error' => 'Employee not found.'];
+        }
+        
+        if ($employee['status'] !== 'active') {
+            return ['success' => false, 'error' => 'This employee is inactive. Please contact your administrator.'];
+        }
+
         // Collect every provided time field into typed taps
         $taps = $this->extractTaps($data, $date);
 
@@ -273,6 +288,21 @@ final class ManualAttendanceService
 
         if (!$existing) {
             return ['success' => false, 'error' => 'Record not found.'];
+        }
+
+        // Check if employee is active
+        $stmt = $db->prepare(
+            "SELECT status FROM employees WHERE id = ?"
+        );
+        $stmt->execute([$existing['employee_id']]);
+        $employee = $stmt->fetch();
+        
+        if (!$employee) {
+            return ['success' => false, 'error' => 'Employee not found.'];
+        }
+        
+        if ($employee['status'] !== 'active') {
+            return ['success' => false, 'error' => 'This employee is inactive. Please contact your administrator.'];
         }
 
         $date    = trim($data['attendance_date']  ?? $existing['attendance_date']);

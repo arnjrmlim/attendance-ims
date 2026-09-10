@@ -156,7 +156,7 @@
         el.className = `alert alert-${type} alert-dismissible fade show`;
         el.innerHTML = `<i class="bi bi-${type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>`
                      + msg
-                     + `<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+                     + `<button type="button" class="btn-close" onclick="document.getElementById('reqAlert').classList.add('d-none')"></button>`;
         el.classList.remove('d-none');
     }
 

@@ -76,12 +76,11 @@
             </select>
         </div>
         <div class="col-md-2">
-            <label class="form-label">Employment Status</label>
-            <select class="form-select" name="employment_status">
+            <label class="form-label">Account Status</label>
+            <select class="form-select" name="status">
                 <option value="">All Statuses</option>
-                <?php foreach (['Active', 'Inactive', 'Suspended', 'Resigned', 'Terminated', 'Retired'] as $status): ?>
-                    <option value="<?= e($status) ?>" <?= ($filters['employment_status'] ?? '') === $status ? 'selected' : '' ?>><?= e($status) ?></option>
-                <?php endforeach; ?>
+                <option value="active" <?= ($filters['status'] ?? '') === 'active' ? 'selected' : '' ?>>Active</option>
+                <option value="inactive" <?= ($filters['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Inactive</option>
             </select>
         </div>
         <div class="col-md-2">
@@ -139,8 +138,8 @@
                     <th>Position</th>
                     <th>Firm</th>
                     <th>Shift</th>
-                    <th>Status</th>
-                    <th>Type</th>
+                    <th>Account Status</th>
+                    <th>Employment Status</th>
                     <th>Date Hired</th>
                     <th>Actions</th>
                 </tr>
@@ -167,19 +166,15 @@
                         <td><?= e($emp['shift_name'] ?? '-') ?></td>
                         <td>
                             <?php
-                            $statusClass = match($emp['employment_status']) {
-                                'Active' => 'text-bg-success',
-                                'Inactive' => 'text-bg-secondary',
-                                'Suspended' => 'text-bg-warning',
-                                'Resigned' => 'text-bg-info',
-                                'Terminated' => 'text-bg-danger',
-                                'Retired' => 'text-bg-primary',
+                            $statusClass = match($emp['status']) {
+                                'active' => 'text-bg-success',
+                                'inactive' => 'text-bg-secondary',
                                 default => 'text-bg-secondary'
                             };
                             ?>
-                            <span class="badge status-badge <?= $statusClass ?>"><?= e($emp['employment_status']) ?></span>
+                            <span class="badge status-badge <?= $statusClass ?>"><?= e(ucfirst($emp['status'])) ?></span>
                         </td>
-                        <td><?= e($emp['employment_type'] ?? '-') ?></td>
+                        <td><?= e($emp['employment_status'] ?? '-') ?></td>
                         <td><?= e($emp['date_hired'] ?? '-') ?></td>
                         <td>
                             <div class="btn-group btn-group-sm">

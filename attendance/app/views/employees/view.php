@@ -80,17 +80,13 @@
             <div class="text-muted mb-2"><?= e($employee['position'] ?? 'No Position') ?></div>
 
             <?php
-            $empStatusClass = match($employee['employment_status'] ?? '') {
-                'Active'     => 'text-bg-success',
-                'Inactive'   => 'text-bg-secondary',
-                'Suspended'  => 'text-bg-warning',
-                'Resigned'   => 'text-bg-info',
-                'Terminated' => 'text-bg-danger',
-                'Retired'    => 'text-bg-primary',
-                default      => 'text-bg-secondary',
+            $statusClass = match($employee['status'] ?? '') {
+                'active' => 'text-bg-success',
+                'inactive' => 'text-bg-secondary',
+                default => 'text-bg-secondary',
             };
             ?>
-            <span class="badge <?= $empStatusClass ?> fs-6 mb-3"><?= e($employee['employment_status'] ?? '-') ?></span>
+            <span class="badge <?= $statusClass ?> fs-6 mb-3"><?= e(ucfirst($employee['status'] ?? '-')) ?></span>
 
             <hr>
             <dl class="text-start row row-cols-1 g-2 mb-3">

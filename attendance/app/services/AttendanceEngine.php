@@ -155,6 +155,21 @@ final class AttendanceEngine
     ): string {
         $type = $this->canonicalType($type);
         
+        // Check if employee is active
+        $stmt = Database::connection()->prepare(
+            "SELECT status FROM employees WHERE id = ?"
+        );
+        $stmt->execute([$employeeId]);
+        $employee = $stmt->fetch();
+        
+        if (!$employee) {
+            throw new \InvalidArgumentException('Employee not found.');
+        }
+        
+        if ($employee['status'] !== 'active') {
+            throw new \InvalidArgumentException('Your account is inactive. Please contact your administrator.');
+        }
+        
         // Check if employee has approved leave for this date
         $stmt = Database::connection()->prepare(
             "SELECT id, leave_type FROM leave_requests 
